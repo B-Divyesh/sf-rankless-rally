@@ -1,0 +1,32 @@
+{
+  "slug": "rankless-rally",
+  "title": "Rankless Rally",
+  "territory": "games-creative",
+  "user": "Puzzle players who enjoy improving a score but do not want a grindy ranked ladder, account requirement, or a daily puzzle that disappears forever.",
+  "evidence": [
+    {
+      "url": "https://hn.algolia.com/api/v1/items/46320308",
+      "date": "2025-12-18",
+      "quote_or_summary": "A creator reports that a simple daily leaderboard caused active players to replay logic puzzles to improve rank more than progression did, despite no rewards or sharing incentives."
+    },
+    {
+      "url": "https://feddit.uk/post/49879676",
+      "date": "2026-05-29",
+      "quote_or_summary": "A post about enclose.horse praises a one-a-day spatial puzzle that also permits the whole archive and user-made levels, rather than locking play behind a single daily board."
+    }
+  ],
+  "recurrence": "One source observes score-driven replay directly; the other highlights that a daily format can coexist with an accessible archive and creation.",
+  "current_workaround": "Replay the daily until it is optimized, keep screenshots of old scores, or move to a competitive game with a full ranking system.",
+  "incumbents_and_gap": "Daily leaderboards and Puzzmo-style archives exist, but standard rank tables intensify competition. Casual players lack a compact score game that celebrates personal improvement and lets a host share a replay without an account.",
+  "smallest_useful_product": "A 90-second spatial-routing puzzle with one daily board and a permanent archive. Each board awards a three-part 'rally card'\u2014speed, elegance, and rescue count\u2014so players can improve different dimensions; a replay ghost shows only a chosen friend\u2019s path via a room code. Inputs are mouse/touch/keyboard. Non-goals: global MMR, chat, streak loss, algorithmic feed, and user-generated content moderation in v1.",
+  "success_measure": "At least 25% of completed boards are replayed once and at least 15% of players open a shared replay ghost without creating an account.",
+  "artifact_class": "browser-game",
+  "monetization": "free \u2014 the score card and archive must remain shareable; a one-time theme pack can support hosting without selling retries.",
+  "constraints": "Anti-cheat should verify deterministic move logs server-side; do not expose personal profiles by default; provide color-blind-safe route symbols.",
+  "est_build_effort": "M",
+  "scale": "small",
+  "why_distinct": "It treats improvement as several interpretable personal goals, not as an engagement ladder or a clone of an existing daily puzzle.",
+  "confidence": 4,
+  "state": "RESEARCHED",
+  "research_run": "research-browser-games-0901-204312-1"
+}
