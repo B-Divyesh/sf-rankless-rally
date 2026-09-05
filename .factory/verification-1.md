@@ -7,6 +7,7 @@
 - Live URL: `https://rankless-rally.sociobot.in`
 - Runtime implementation reviewed: `a233ee515b65265dcb9332d5911ab3741b915665`
 - Documentation and claims revision reviewed: `9775839e2f5165673e2d6638135f4d43de771edb`
+- Verification report commit: `2e749e5db4be5db31d9a6532127de0e84afc5128`
 - Live/runtime comparison: the deployed HTML, JavaScript, and CSS hashes exactly match the clean build. The later revision changes tests and documentation, not runtime code.
 - Finding count: 9
 - Untested public claim count: 5

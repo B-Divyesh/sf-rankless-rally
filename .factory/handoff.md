@@ -6,6 +6,7 @@ Independent verification 1 is **FAIL** with 9 findings and 5 untested public cla
 
 - Runtime implementation: `a233ee515b65265dcb9332d5911ab3741b915665`
 - Claims and documentation revision reviewed: `9775839e2f5165673e2d6638135f4d43de771edb`
+- Verification report commit: `2e749e5db4be5db31d9a6532127de0e84afc5128`
 - Live URL: `https://rankless-rally.sociobot.in`
 - The live HTML, JavaScript, and CSS exactly match the clean candidate build.
 
