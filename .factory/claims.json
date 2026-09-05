@@ -50,17 +50,17 @@
   },
   {
     "id": "keyboard-controls",
-    "claim": "Route with Arrow keys or WASD.",
+    "claim": "Route with Arrow keys and WASD.",
     "where": "game controls, README",
     "test": "npm test -- --grep @claim:keyboard-controls",
-    "sandbox": "fresh browser context at /demo; Arrow keys connect Relay 1"
+    "sandbox": "fresh browser context at /demo; use ArrowRight then D to connect Relay 1"
   },
   {
     "id": "touch-controls",
     "claim": "Route with 44-pixel on-screen direction controls.",
     "where": "game controls, README",
     "test": "npm test -- --grep @claim:touch-controls",
-    "sandbox": "fresh browser context at /demo; click visible direction controls to connect Relay 1"
+    "sandbox": "fresh browser context at /demo; use a real phone tap or desktop pointer click to connect Relay 1"
   },
   {
     "id": "pause-recovery",

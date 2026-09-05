@@ -77,22 +77,27 @@ test('@claim:demo-isolation resets sample data without changing a real run', asy
   await expect(page.getByRole('button', { name: 'Resume run' })).toBeVisible();
 });
 
-test('@claim:keyboard-controls routes with Arrow keys', async ({ page }) => {
+test('@claim:keyboard-controls routes with Arrow keys and WASD', async ({ page }) => {
   await page.goto('/demo');
   await page.keyboard.press('ArrowRight');
-  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('d');
   await expect(page.getByText('Relay 1 connected.')).toBeVisible();
   await expect(page.getByText('Relays 1/3')).toBeVisible();
 });
 
-test('@claim:touch-controls routes with 44-pixel on-screen direction controls', async ({ page }) => {
+test('@claim:touch-controls routes with 44-pixel on-screen direction controls', async ({ page }, testInfo) => {
   await page.goto('/demo');
   const right = page.getByRole('button', { name: 'Move right' });
   const bounds = await right.boundingBox();
   expect(bounds?.width).toBeGreaterThanOrEqual(44);
   expect(bounds?.height).toBeGreaterThanOrEqual(44);
-  await right.click();
-  await right.click();
+  if (testInfo.project.name === 'phone') {
+    await right.tap();
+    await right.tap();
+  } else {
+    await right.click();
+    await right.click();
+  }
   await expect(page.getByText('Relay 1 connected.')).toBeVisible();
 });
 
