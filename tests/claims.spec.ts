@@ -146,6 +146,18 @@ test('@claim:shared-replay opens a completed route in an independent browser', a
   await friendContext.close();
 });
 
+test('@claim:server-verified-replay gives a share code only after the server accepts a completed route', async ({ page }) => {
+  await page.goto('/demo');
+  await winningRoute(page);
+  const code = await page.getByLabel('Completed replay code').inputValue();
+  expect(code).toMatch(/^RR2-[A-Z0-9-]+$/);
+  const rejected = await page.request.post('/api/replays', {
+    data: { board_id: 'practice-01', moves: 'R' }
+  });
+  expect(rejected.status()).toBe(422);
+  expect((await rejected.json()).code).toBeUndefined();
+});
+
 test('@claim:daily-and-archive provides one daily and twenty permanent boards', async ({ page }) => {
   await page.goto('/demo');
   await expect(page.getByRole('group', { name: 'Twenty permanent practice boards' }).getByRole('button')).toHaveCount(20);
@@ -179,11 +191,11 @@ test('@claim:rally-card-values gives elegance for fewer moves and a rescue count
   expect(rescueDetour.rescues).toBe(1);
 });
 
-test('@claim:replay-code-private serializes only a board id and route moves', async ({ page, browser }) => {
+test('@claim:replay-code-private shares an opaque route code with no name or profile', async ({ page, browser }) => {
   await page.goto('/demo');
   await winningRoute(page);
   const code = await page.getByLabel('Completed replay code').inputValue();
-  expect(code).toMatch(/^RR1:practice-01:[UDLR]+$/);
+  expect(code).toMatch(/^RR2-[A-Z0-9-]+$/);
   const friendContext = await browser.newContext();
   const friend = await friendContext.newPage();
   await friend.goto('/demo');
@@ -193,11 +205,15 @@ test('@claim:replay-code-private serializes only a board id and route moves', as
   await friendContext.close();
 });
 
-test('@claim:completed-replay-only rejects a syntactically valid route that does not reach the exit', async ({ page }) => {
+test('@claim:completed-replay-only rejects an incomplete route before it can become a replay code', async ({ page }) => {
   await page.goto('/demo');
-  await page.getByLabel('Replay code').fill('RR1:practice-01:R');
+  const invalid = await page.request.post('/api/replays', {
+    data: { board_id: 'practice-01', moves: 'R' }
+  });
+  expect(invalid.status()).toBe(422);
+  await page.getByLabel('Replay code').fill('RR2-NOT-A-REAL-REPLAY');
   await page.getByRole('button', { name: 'Load replay code' }).click();
-  await expect(page.getByText('This replay code is not valid. Paste a completed code that starts with RR1.')).toBeVisible();
+  await expect(page.getByText('This replay code is not valid. Paste a server-checked code that starts with RR2.')).toBeVisible();
   await expect(page.getByTestId('shared-route-status')).toContainText('loaded');
 });
 
@@ -275,7 +291,7 @@ test('handles blocked moves, invalid replay codes, pause recovery, routes, and s
   await expect(page.getByText('That route is blocked. Choose another direction.')).toBeVisible();
   await page.getByLabel('Replay code').fill('not a replay');
   await page.getByRole('button', { name: 'Load replay code' }).click();
-  await expect(page.getByText('This replay code is not valid. Paste a completed code that starts with RR1.')).toBeVisible();
+  await expect(page.getByText('This replay code is not valid. Paste a server-checked code that starts with RR2.')).toBeVisible();
   await page.keyboard.press('p');
   await expect(page.getByRole('heading', { name: 'Run paused' })).toBeVisible();
   await page.reload();
@@ -300,7 +316,14 @@ test('opens Archive, restores keyboard focus, uses valid ARIA, and keeps all pho
   await page.getByRole('link', { name: 'Archive' }).click();
   await expect(page).toHaveURL(/\?archive=1$/);
   const archiveTitle = page.getByRole('heading', { name: 'Choose a practice board' });
+  await page.waitForTimeout(1000);
   await expect(archiveTitle).toBeInViewport();
+  const settledArchive = await archiveTitle.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom, viewport: window.innerHeight };
+  });
+  expect(settledArchive.top).toBeGreaterThanOrEqual(0);
+  expect(settledArchive.bottom).toBeLessThanOrEqual(settledArchive.viewport);
   await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe('archive-title');
 
   await page.getByLabel('Main navigation').getByRole('link', { name: 'Privacy' }).click();
@@ -335,4 +358,11 @@ test('uses route-specific canonicals for every public page', async ({ page }) =>
     expect(response?.status()).toBe(200);
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', canonical);
   }
+});
+
+test('has no full Axe violations in the dark treatment', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/demo');
+  const report = await new AxeBuilder({ page: page as never }).analyze();
+  expect(report.violations).toEqual([]);
 });

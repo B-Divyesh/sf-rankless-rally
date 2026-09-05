@@ -16,9 +16,9 @@ export default defineConfig({
     { name: 'phone', use: { ...devices['iPhone 13'], browserName: 'chromium' } }
   ],
   webServer: {
-    command: 'npm run preview -- --host 127.0.0.1 --port 4173',
+    command: 'PORT=4173 npm run preview',
     url: 'http://127.0.0.1:4173',
     reuseExistingServer: !process.env.CI,
-    timeout: 30_000
+    timeout: 120_000
   }
 });

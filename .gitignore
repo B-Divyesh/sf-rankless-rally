@@ -1,5 +1,7 @@
 node_modules/
 dist/
+target/
+data/
 playwright-report/
 test-results/
 graphify-out/

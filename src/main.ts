@@ -2,16 +2,13 @@ import './styles.css';
 import {
   boardById,
   dailyBoard,
-  decodeReplay,
   defaultSettings,
   directionFromKey,
-  encodeReplay,
   makeRun,
   practiceBoards,
   rallyCard,
   replayPositions,
   routeMove,
-  verifyReplay,
   type Board,
   type Direction,
   type RallyCard,
@@ -21,6 +18,7 @@ import {
 
 type Bests = Record<string, RallyCard>;
 type Replay = { boardId: string; route: Direction[]; code: string };
+type VerifiedReplay = { code: string; board_id: string; moves: string };
 
 const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('The game could not start because its page container is missing.');
@@ -33,6 +31,11 @@ let bests: Bests = {};
 let board: Board = dailyBoard();
 let run: Run = makeRun(board, settings);
 let replay: Replay | null = null;
+let completedReplayCode: string | null = null;
+let replayCodeSaving = false;
+let replayCodeError = '';
+let replayError = '';
+let pendingReplayCode = '';
 let ghostIndex = 0;
 let ghostTimer: number | null = null;
 let settingsOpen = false;
@@ -47,7 +50,8 @@ let lastFrame = performance.now();
 let accumulated = 0;
 let audioContext: AudioContext | null = null;
 
-const demoReplayCode = 'RR1:practice-01:RRRRRURUUUUU';
+const demoReplayCode = 'RR2-DEMO-PRACTICE-01';
+const demoReplayRoute: Direction[] = ['right', 'right', 'right', 'right', 'right', 'up', 'right', 'up', 'up', 'up', 'up', 'up'];
 
 const storePrefix = (): string => `${isDemo ? 'demo:' : ''}${storageRoot}`;
 const storeKey = (name: string): string => `${storePrefix()}:${name}`;
@@ -69,8 +73,16 @@ const writeStore = (name: string, value: unknown): void => {
   }
 };
 
+const removeStore = (name: string): void => {
+  try {
+    localStorage.removeItem(storeKey(name));
+  } catch {
+    // The game remains playable if a browser blocks local storage.
+  }
+};
+
 const clearDemoStore = (): void => {
-  ['settings', 'bests', 'run'].forEach((name) => localStorage.removeItem(`demo:${storageRoot}:${name}`));
+  ['settings', 'bests', 'run', 'completed-replay-code'].forEach((name) => localStorage.removeItem(`demo:${storageRoot}:${name}`));
 };
 
 const escapeHtml = (value: string): string => value.replace(/[&<>'"]/g, (character) => ({
@@ -131,21 +143,18 @@ const initialiseSession = (): void => {
   isDemo = currentPath() === '/demo' || new URLSearchParams(location.search).get('demo') === '1';
   settings = { ...defaultSettings, ...readStore<Partial<Settings>>('settings', {}) };
   bests = readStore<Bests>('bests', {});
+  const savedReplayCode = readStore<unknown>('completed-replay-code', null);
+  completedReplayCode = typeof savedReplayCode === 'string' && /^RR2-[A-Z0-9-]+$/.test(savedReplayCode) ? savedReplayCode : null;
+  replayCodeSaving = false;
+  replayCodeError = '';
+  replayError = '';
+  pendingReplayCode = '';
   if (isDemo && Object.keys(bests).length === 0) {
     bests = { 'practice-01': { speed: 74, elegance: 92, rescues: 2 } };
     saveBests();
   }
   const params = new URLSearchParams(location.search);
-  const replayCode = params.get('replay');
-  const decoded = replayCode ? decodeReplay(replayCode) : null;
-  const replayBoard = decoded ? boardById(decoded.boardId) : undefined;
-  if (decoded && replayBoard && verifyReplay(replayBoard, decoded.route)) {
-    board = replayBoard;
-    run = makeRun(board, settings);
-    replay = { ...decoded, code: replayCode ?? '' };
-    ghostIndex = 0;
-    return;
-  }
+  const requestedReplayCode = params.get('replay');
   replay = null;
   const saved = readStore<unknown>('run', null);
   if (hasSavedRun(saved)) {
@@ -159,12 +168,9 @@ const initialiseSession = (): void => {
   }
   board = isDemo ? (boardById('practice-01') ?? dailyBoard()) : dailyBoard();
   run = makeRun(board, settings);
-  if (isDemo) {
-    const sampleReplay = decodeReplay(demoReplayCode);
-    if (sampleReplay) {
-      replay = { ...sampleReplay, code: demoReplayCode };
-      ghostIndex = 1;
-    }
+  if (isDemo && !requestedReplayCode) {
+    replay = { boardId: 'practice-01', route: demoReplayRoute, code: demoReplayCode };
+    ghostIndex = 1;
   }
 };
 
@@ -178,6 +184,104 @@ const navigate = (url: string): void => {
   pendingBoardId = null;
   initialiseSession();
   render(archiveRequested() ? '#archive-title' : 'h1');
+  hydrateReplayFromLocation();
+};
+
+const sandboxHeaders = (): HeadersInit => isDemo ? { 'X-Rankless-Sandbox': 'demo' } : {};
+
+const routeFromServer = (candidate: unknown): Replay | null => {
+  if (!candidate || typeof candidate !== 'object') return null;
+  const replayCandidate = candidate as Partial<VerifiedReplay>;
+  if (typeof replayCandidate.code !== 'string' || typeof replayCandidate.board_id !== 'string' || typeof replayCandidate.moves !== 'string') return null;
+  const replayBoard = boardById(replayCandidate.board_id);
+  if (!replayBoard || !/^RR2-[A-Z0-9-]+$/.test(replayCandidate.code) || !/^[UDLR]{1,512}$/.test(replayCandidate.moves)) return null;
+  const directions: Record<string, Direction> = { U: 'up', D: 'down', L: 'left', R: 'right' };
+  const route = [...replayCandidate.moves].map((move) => directions[move]);
+  if (route.some((direction) => !direction)) return null;
+  return { boardId: replayCandidate.board_id, route, code: replayCandidate.code };
+};
+
+const replayRequestError = (): string => 'This replay code is not valid. Paste a server-checked code that starts with RR2.';
+
+const loadServerReplay = async (code: string): Promise<void> => {
+  pendingReplayCode = code.trim().toUpperCase();
+  replayError = 'Checking this replay with the server.';
+  render();
+  try {
+    const response = await fetch(`/api/replays/${encodeURIComponent(pendingReplayCode)}`, { headers: sandboxHeaders() });
+    const payload = await response.json().catch(() => null);
+    const nextReplay = response.ok ? routeFromServer(payload) : null;
+    if (!nextReplay) {
+      replayError = replayRequestError();
+      render();
+      return;
+    }
+    board = boardById(nextReplay.boardId) ?? board;
+    run = makeRun(board, settings);
+    replay = nextReplay;
+    ghostIndex = 0;
+    replayError = '';
+    saveRun();
+    render();
+  } catch {
+    replayError = 'The replay server is unavailable. Check your connection and try again.';
+    render();
+  }
+};
+
+const hydrateDemoReplay = async (): Promise<void> => {
+  if (!isDemo || new URLSearchParams(location.search).has('replay')) return;
+  try {
+    const response = await fetch('/api/replays/demo', { headers: sandboxHeaders() });
+    const nextReplay = response.ok ? routeFromServer(await response.json()) : null;
+    if (!nextReplay || !isDemo || new URLSearchParams(location.search).has('replay')) return;
+    replay = nextReplay;
+    ghostIndex = 1;
+    render();
+  } catch {
+    // The bundled sample marker stays available even when a local server is stopped.
+  }
+};
+
+const hydrateReplayFromLocation = (): void => {
+  const requestedReplayCode = new URLSearchParams(location.search).get('replay');
+  if (requestedReplayCode) {
+    void loadServerReplay(requestedReplayCode);
+  } else if (isDemo) {
+    void hydrateDemoReplay();
+  }
+};
+
+const saveVerifiedReplay = async (boardId: string, route: Direction[]): Promise<void> => {
+  if (replayCodeSaving || completedReplayCode) return;
+  replayCodeSaving = true;
+  replayCodeError = '';
+  render();
+  const moves = route.map((direction) => ({ up: 'U', down: 'D', left: 'L', right: 'R' })[direction]).join('');
+  try {
+    const response = await fetch('/api/replays', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...sandboxHeaders() },
+      body: JSON.stringify({ board_id: boardId, moves })
+    });
+    const nextReplay = response.ok ? routeFromServer(await response.json()) : null;
+    if (!nextReplay || nextReplay.boardId !== boardId || nextReplay.route.length !== route.length) throw new Error('The replay response was incomplete.');
+    if (run.status !== 'won' || board.id !== boardId || run.route.map((direction) => ({ up: 'U', down: 'D', left: 'L', right: 'R' })[direction]).join('') !== moves) return;
+    completedReplayCode = nextReplay.code;
+    writeStore('completed-replay-code', completedReplayCode);
+  } catch {
+    replayCodeError = 'Your route is complete, but a replay code could not be saved. Check your connection, then try again.';
+  } finally {
+    replayCodeSaving = false;
+    render();
+  }
+};
+
+const clearCompletedReplay = (): void => {
+  completedReplayCode = null;
+  replayCodeSaving = false;
+  replayCodeError = '';
+  removeStore('completed-replay-code');
 };
 
 const boardSymbol = (x: number, y: number): string => {
@@ -217,17 +321,21 @@ const currentCard = (): RallyCard => rallyCard(board, run);
 
 const endMarkup = (): string => {
   if (run.status === 'won') {
-    const code = encodeReplay(board.id, run.route);
-    const shareUrl = new URL('/', location.origin);
-    shareUrl.searchParams.set('replay', code);
+    const codeMarkup = completedReplayCode
+      ? `<label class="share-output">Verified replay code<input aria-label="Completed replay code" readonly value="${escapeHtml(completedReplayCode)}" /></label>`
+      : replayCodeError
+        ? `<p class="form-error" role="alert">${escapeHtml(replayCodeError)}</p><button class="button button-secondary" type="button" data-action="retry-replay">Save verified replay code</button>`
+        : `<p class="share-output" aria-live="polite">${replayCodeSaving ? 'Saving verified replay code.' : 'Checking your completed route with the server.'}</p>`;
+    const shareUrl = completedReplayCode ? new URL('/', location.origin) : null;
+    if (shareUrl && completedReplayCode) shareUrl.searchParams.set('replay', completedReplayCode);
     return `<section class="end-screen win" aria-labelledby="end-title">
       <p class="eyebrow">Board complete</p>
       <h2 id="end-title" tabindex="-1">You reached the exit</h2>
       <p>Replay this board to improve one part of your rally card.</p>
       ${cardMarkup(currentCard(), 'This run')}
-      <div class="end-actions"><button class="button button-primary" type="button" data-action="restart">Play this board again</button><button class="button button-secondary" type="button" data-action="copy-code">Copy replay code</button></div>
-      <label class="share-output">Replay code<input aria-label="Completed replay code" readonly value="${escapeHtml(code)}" /></label>
-      <button class="text-button" type="button" data-action="copy-link" data-share-url="${escapeHtml(shareUrl.toString())}">Copy replay link</button>
+      <div class="end-actions"><button class="button button-primary" type="button" data-action="restart">Play this board again</button>${completedReplayCode ? '<button class="button button-secondary" type="button" data-action="copy-code">Copy replay code</button>' : ''}</div>
+      ${codeMarkup}
+      ${shareUrl ? `<button class="text-button" type="button" data-action="copy-link" data-share-url="${escapeHtml(shareUrl.toString())}">Copy replay link</button>` : ''}
     </section>`;
   }
   if (run.status === 'lost') {
@@ -254,11 +362,11 @@ const boardPicker = (): string => {
 const replayJoinMarkup = (): string => `<section class="replay-join" aria-labelledby="replay-title">
   <p class="eyebrow">Shared replay</p>
   <h2 id="replay-title">Watch a friend’s route</h2>
-  <p>A replay code contains only a board and its moves. It contains no name or profile.</p>
+  <p>A replay code names a server-checked route. It contains no name or profile.</p>
   <form id="replay-form" novalidate>
     <label for="replay-code-input">Replay code</label>
-    <div class="form-row"><input id="replay-code-input" name="replay-code" autocomplete="off" spellcheck="false" placeholder="RR1:practice-01:RRRR…" /><button class="button button-secondary" type="submit">Load replay code</button></div>
-    <p id="replay-error" class="form-error" aria-live="assertive"></p>
+    <div class="form-row"><input id="replay-code-input" name="replay-code" autocomplete="off" spellcheck="false" value="${escapeHtml(pendingReplayCode)}" placeholder="RR2-…" /><button class="button button-secondary" type="submit">Load replay code</button></div>
+    <p id="replay-error" class="form-error" aria-live="assertive">${escapeHtml(replayError)}</p>
   </form>
   ${replay ? `<div class="ghost-note" role="status"><strong>Shared route loaded.</strong> No account is shown. <button class="text-button" type="button" data-action="play-ghost">Play shared route</button></div>` : ''}
 </section>`;
@@ -321,7 +429,7 @@ const gamePage = (): string => {
 
 const informationPage = (kind: 'privacy' | 'terms'): string => {
   const privacy = kind === 'privacy';
-  return `${header()}<main id="main" tabindex="-1" class="information-page"><p class="eyebrow">Rankless Rally</p><h1 tabindex="-1">${privacy ? 'Keep puzzle progress in your browser' : 'Play a free puzzle game'}</h1>${privacy ? `<p class="lede">Rankless Rally stores settings, a current run, and personal best cards in your browser. It does not require an account.</p><h2>What is stored</h2><p>The game uses local browser storage. Demo data uses a separate demo storage area and is removed when you leave or reset the demo.</p><h2>What is sent</h2><p>The game does not send gameplay, names, or tracking events to a service. A replay code contains a board identifier and move letters that you choose to copy.</p><h2>Remove your data</h2><p>Use your browser’s site-data controls to remove saved settings and cards. Reset demo removes only demo data.</p>` : `<p class="lede">Rankless Rally is free to play. It is for personal puzzle play and shareable replay codes.</p><h2>Using the game</h2><p>You may play the daily board and every practice board without an account. Do not use the game to send harmful material through replay codes.</p><h2>Availability</h2><p>The game is offered as is. Browser storage can be removed by your browser or its privacy settings.</p><h2>Contact</h2><p>This product is built by Param Factory. The product site has no payment or account service.</p>`}</main>${footer()}<p id="route-announcement" class="sr-only" aria-live="polite"></p>`;
+  return `${header()}<main id="main" tabindex="-1" class="information-page"><p class="eyebrow">Rankless Rally</p><h1 tabindex="-1">${privacy ? 'Keep puzzle progress in your browser' : 'Play a free puzzle game'}</h1>${privacy ? `<p class="lede">Rankless Rally stores settings, a current run, and personal best cards in your browser. It does not require an account.</p><h2>What is stored</h2><p>The game uses local browser storage. Demo data uses a separate demo storage area and is removed when you leave or reset the demo.</p><h2>What is sent</h2><p>When you ask for a replay code, this product checks the board and moves on its server. It stores the board, moves, code, and a temporary demo expiry. It stores no name or profile.</p><h2>Remove your data</h2><p>Use your browser’s site-data controls to remove saved settings and cards. Reset demo removes only demo data.</p>` : `<p class="lede">Rankless Rally is free to play. It is for personal puzzle play and shareable replay codes.</p><h2>Using the game</h2><p>You may play the daily board and every practice board without an account. Do not use the game to send harmful material through replay codes.</p><h2>Availability</h2><p>The game is offered as is. Browser storage can be removed by your browser or its privacy settings.</p><h2>Contact</h2><p>This product is built by Param Factory. The product site has no payment or account service.</p>`}</main>${footer()}<p id="route-announcement" class="sr-only" aria-live="polite"></p>`;
 };
 
 const notFoundPage = (): string => {
@@ -343,8 +451,8 @@ const render = (focusTarget?: string): void => {
   if (focusTarget) {
     requestAnimationFrame(() => {
       const focusable = document.querySelector<HTMLElement>(focusTarget);
-      focusable?.focus({ preventScroll: focusTarget === '#archive-title' });
-      if (focusTarget === '#archive-title') focusable?.scrollIntoView({ block: 'start' });
+      if (focusTarget === '#archive-title') focusable?.scrollIntoView({ block: 'start', behavior: 'auto' });
+      focusable?.focus({ preventScroll: true });
       const announcement = document.querySelector<HTMLElement>('#route-announcement');
       if (announcement && focusable) announcement.textContent = focusable.textContent ?? '';
     });
@@ -386,12 +494,14 @@ const selectBoard = (id: string): void => {
   run = makeRun(board, settings);
   replay = null;
   ghostIndex = 0;
+  clearCompletedReplay();
   saveRun();
   render();
 };
 
 const startRun = (): void => {
   if (run.status === 'ready') {
+    clearCompletedReplay();
     run = { ...run, status: 'playing', started: true, feedback: 'Timer started. Connect Relay 1 first.' };
     saveRun();
     render();
@@ -410,6 +520,9 @@ const moveRun = (direction: Direction): void => {
       bests = { ...bests, [board.id]: candidate };
       saveBests();
     }
+    persistAndRender();
+    void saveVerifiedReplay(board.id, run.route);
+    return;
   }
   persistAndRender();
 };
@@ -490,6 +603,7 @@ document.addEventListener('click', (event) => {
     run = makeRun(board, settings);
     replay = null;
     ghostIndex = 0;
+    clearCompletedReplay();
     saveRun();
     render();
   }
@@ -521,6 +635,7 @@ document.addEventListener('click', (event) => {
       board = next;
       run = makeRun(board, settings);
       replay = null;
+      clearCompletedReplay();
       saveRun();
     }
     render();
@@ -529,8 +644,9 @@ document.addEventListener('click', (event) => {
     pendingBoardId = null;
     render();
   }
-  if (action === 'copy-code' && run.status === 'won') void copy(encodeReplay(board.id, run.route), 'Replay code copied.');
+  if (action === 'copy-code' && completedReplayCode) void copy(completedReplayCode, 'Replay code copied.');
   if (action === 'copy-link' && target.dataset.shareUrl) void copy(target.dataset.shareUrl, 'Replay link copied.');
+  if (action === 'retry-replay' && run.status === 'won') void saveVerifiedReplay(board.id, run.route);
   if (action === 'play-ghost') playGhost();
   if (action === 'reset-demo' && isDemo) {
     clearDemoStore();
@@ -561,20 +677,7 @@ document.addEventListener('submit', (event) => {
   if (form.id !== 'replay-form') return;
   event.preventDefault();
   const input = form.querySelector<HTMLInputElement>('[name="replay-code"]');
-  const code = input?.value ?? '';
-  const decoded = decodeReplay(code);
-  const replayBoard = decoded ? boardById(decoded.boardId) : undefined;
-  const error = document.querySelector<HTMLElement>('#replay-error');
-  if (!decoded || !replayBoard || !verifyReplay(replayBoard, decoded.route)) {
-    if (error) error.textContent = 'This replay code is not valid. Paste a completed code that starts with RR1.';
-    return;
-  }
-  board = replayBoard;
-  run = makeRun(board, settings);
-  replay = { ...decoded, code: code.trim() };
-  ghostIndex = 0;
-  saveRun();
-  render();
+  void loadServerReplay(input?.value ?? '');
 });
 
 document.addEventListener('keydown', (event) => {
@@ -621,6 +724,7 @@ window.addEventListener('popstate', () => {
   stopGhost();
   initialiseSession();
   render(archiveRequested() ? '#archive-title' : 'h1');
+  hydrateReplayFromLocation();
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -666,4 +770,5 @@ const gameLoop = (now: number): void => {
 
 initialiseSession();
 render(archiveRequested() ? '#archive-title' : undefined);
+hydrateReplayFromLocation();
 requestAnimationFrame(gameLoop);

@@ -37,7 +37,9 @@
 }
 
 * { box-sizing: border-box; }
-html { background: var(--canvas); scroll-behavior: smooth; }
+/* Route navigation must settle on its focused heading. Smooth document scrolling
+   can keep moving after focus and leave an archive heading above the viewport. */
+html { background: var(--canvas); scroll-behavior: auto; }
 body { margin: 0; min-width: 320px; color: var(--ink); background-color: var(--canvas); background-image: linear-gradient(90deg, transparent 0 31px, color-mix(in srgb, var(--line) 10%, transparent) 32px), linear-gradient(0deg, transparent 0 31px, color-mix(in srgb, var(--line) 8%, transparent) 32px); background-size: 32px 32px; font-size: 16px; line-height: 1.5; }
 button, input { font: inherit; }
 button { cursor: pointer; }
@@ -129,7 +131,7 @@ code { font-variant-numeric: tabular-nums; }
 .end-actions, .dialog-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; margin: 1rem 0; }
 .share-output { display: grid; gap: 0.35rem; max-width: 560px; color: var(--muted); font-size: 0.85rem; font-weight: 750; }
 .share-output input, .form-row input { min-height: 44px; width: 100%; padding: 0.55rem 0.65rem; color: var(--ink); background: var(--surface); border: 2px solid var(--line); border-radius: 0.2rem; }
-.how-section, .archive-section, .replay-join, .privacy-section { max-width: 900px; padding: clamp(2.25rem, 6vw, 5rem) 0 0; content-visibility: auto; contain-intrinsic-size: 600px; }
+.how-section, .archive-section, .replay-join, .privacy-section { max-width: 900px; padding: clamp(2.25rem, 6vw, 5rem) 0 0; }
 .how-section ol { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; padding: 0; list-style-position: inside; }
 .how-section li { min-height: 110px; padding: 1rem; background: var(--surface); border-top: 5px solid var(--route); box-shadow: 4px 4px 0 var(--surface-deep); }
 .how-section strong { display: block; }

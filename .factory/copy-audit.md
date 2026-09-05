@@ -42,7 +42,7 @@ Audited route: `/` on 2026-09-05. The game board begins on the first screen.
 | Play today’s board | 4 | pass |
 | Shared replay | 2 | pass |
 | Watch a friend’s route | 4 | pass |
-| A replay code contains only a board and its moves. | 11 | pass |
+| A replay code names a server-checked route. | 7 | pass |
 | It contains no name or profile. | 6 | pass |
 | Load replay code | 3 | pass |
 | What this game stores and sends | 6 | pass |

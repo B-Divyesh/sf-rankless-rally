@@ -71,10 +71,17 @@
   },
   {
     "id": "shared-replay",
-    "claim": "Open a completed replay code in another browser without an account.",
+    "claim": "Open a server-checked replay code in another browser without an account.",
     "where": "end screen, replay section, README",
     "test": "npm test -- --grep @claim:shared-replay",
     "sandbox": "finish /demo board, copy displayed code, load it in a second browser context"
+  },
+  {
+    "id": "server-verified-replay",
+    "claim": "Get a share code only after this product's server verifies a completed route.",
+    "where": "game end screen, shared replay section, README",
+    "test": "npm test -- --grep @claim:server-verified-replay",
+    "sandbox": "fresh browser context at /demo; finish the board, inspect the opaque code, then submit an incomplete move log to the replay API"
   },
   {
     "id": "daily-and-archive",
@@ -99,14 +106,14 @@
   },
   {
     "id": "replay-code-private",
-    "claim": "A replay code contains only a board id and route moves, with no name or profile.",
+    "claim": "A replay code contains no name or profile.",
     "where": "shared replay section",
     "test": "npm test -- --grep @claim:replay-code-private",
     "sandbox": "finish /demo board, inspect the displayed code, then load it in an independent browser context"
   },
   {
     "id": "completed-replay-only",
-    "claim": "Load only a completed replay route.",
+    "claim": "Only a completed route can become a replay code.",
     "where": "replay code error message",
     "test": "npm test -- --grep @claim:completed-replay-only",
     "sandbox": "fresh browser context at /demo; submit a correctly formatted but unfinished route"
