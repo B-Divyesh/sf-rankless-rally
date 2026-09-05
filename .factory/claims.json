@@ -84,6 +84,48 @@
     "sandbox": "fresh browser context at /demo; inspect archive and switch boards"
   },
   {
+    "id": "daily-board-changes",
+    "claim": "The daily board changes each UTC day.",
+    "where": "archive section",
+    "test": "npm test -- --grep @claim:daily-board-changes",
+    "sandbox": "fresh browser context at / with two fixed UTC dates; compare visible daily board seeds"
+  },
+  {
+    "id": "rally-card-values",
+    "claim": "Fewer moves improve elegance and rescues increase the rescue value on a rally card.",
+    "where": "game goal and rally card",
+    "test": "npm test -- --grep @claim:rally-card-values",
+    "sandbox": "fresh browser context at /demo; compare a direct completed route with a completed rescue detour"
+  },
+  {
+    "id": "replay-code-private",
+    "claim": "A replay code contains only a board id and route moves, with no name or profile.",
+    "where": "shared replay section",
+    "test": "npm test -- --grep @claim:replay-code-private",
+    "sandbox": "finish /demo board, inspect the displayed code, then load it in an independent browser context"
+  },
+  {
+    "id": "completed-replay-only",
+    "claim": "Load only a completed replay route.",
+    "where": "replay code error message",
+    "test": "npm test -- --grep @claim:completed-replay-only",
+    "sandbox": "fresh browser context at /demo; submit a correctly formatted but unfinished route"
+  },
+  {
+    "id": "route-sound-after-move",
+    "claim": "Route sounds begin only after a valid move.",
+    "where": "settings dialog",
+    "test": "npm test -- --grep @claim:route-sound-after-move",
+    "sandbox": "fresh browser context at /demo with a Web Audio observer; start then make the first valid move"
+  },
+  {
+    "id": "reduce-replay-motion",
+    "claim": "Reduce movement shows shared replays without route animation.",
+    "where": "settings dialog",
+    "test": "npm test -- --grep @claim:reduce-replay-motion",
+    "sandbox": "fresh browser context at /demo; enable Reduce movement and play the preloaded shared route"
+  },
+  {
     "id": "no-tracking",
     "claim": "The sample game makes no third-party requests.",
     "where": "privacy section, README",

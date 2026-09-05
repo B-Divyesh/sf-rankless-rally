@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
-    "preview": "vite preview",
+    "preview": "node scripts/serve-dist.mjs",
     "test": "npm run build && playwright test",
     "test:claims": "npm run build && playwright test tests/claims.spec.ts",
     "check": "npm run build && npm run test"

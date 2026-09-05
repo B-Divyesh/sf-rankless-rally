@@ -11,6 +11,7 @@ import {
   rallyCard,
   replayPositions,
   routeMove,
+  verifyReplay,
   type Board,
   type Direction,
   type RallyCard,
@@ -25,6 +26,7 @@ const app = document.querySelector<HTMLDivElement>('#app');
 if (!app) throw new Error('The game could not start because its page container is missing.');
 
 const storageRoot = 'rankless-rally';
+const canonicalOrigin = 'https://rankless-rally.sociobot.in';
 let isDemo = false;
 let settings: Settings = { ...defaultSettings };
 let bests: Bests = {};
@@ -44,6 +46,8 @@ let sampleStarted = performance.now();
 let lastFrame = performance.now();
 let accumulated = 0;
 let audioContext: AudioContext | null = null;
+
+const demoReplayCode = 'RR1:practice-01:RRRRRURUUUUU';
 
 const storePrefix = (): string => `${isDemo ? 'demo:' : ''}${storageRoot}`;
 const storeKey = (name: string): string => `${storePrefix()}:${name}`;
@@ -87,6 +91,32 @@ const pageName = (): 'game' | 'privacy' | 'terms' | 'not-found' => {
   return 'not-found';
 };
 
+const archiveRequested = (): boolean => pageName() === 'game' && new URLSearchParams(location.search).get('archive') === '1';
+
+const setMetaContent = (selector: string, content: string): void => {
+  document.querySelector<HTMLMetaElement>(selector)?.setAttribute('content', content);
+};
+
+const setRouteMetadata = (page: ReturnType<typeof pageName>): void => {
+  const metadata = page === 'privacy'
+    ? { title: 'Privacy — Rankless Rally', description: 'See what Rankless Rally stores in this browser and how to remove it.' }
+    : page === 'terms'
+      ? { title: 'Terms — Rankless Rally', description: 'Read the free-play terms for Rankless Rally routing puzzles.' }
+      : page === 'not-found'
+        ? { title: 'Page not found — Rankless Rally', description: 'This Rankless Rally page is not available.' }
+        : isDemo
+          ? { title: 'Demo — Rankless Rally', description: 'Try a sample routing board without changing your saved game.' }
+          : { title: 'Rankless Rally — play short routing puzzles', description: 'Play short routing puzzles, improve a personal route card, and share a replay code.' };
+  document.title = metadata.title;
+  setMetaContent('meta[name="description"]', metadata.description);
+  setMetaContent('meta[property="og:title"]', metadata.title);
+  setMetaContent('meta[property="og:description"]', metadata.description);
+  setMetaContent('meta[name="twitter:title"]', metadata.title);
+  setMetaContent('meta[name="twitter:description"]', metadata.description);
+  const canonical = document.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+  if (canonical && page !== 'not-found') canonical.href = new URL(currentPath(), canonicalOrigin).toString();
+};
+
 const saveSettings = (): void => writeStore('settings', settings);
 const saveBests = (): void => writeStore('bests', bests);
 const saveRun = (): void => writeStore('run', run);
@@ -109,7 +139,7 @@ const initialiseSession = (): void => {
   const replayCode = params.get('replay');
   const decoded = replayCode ? decodeReplay(replayCode) : null;
   const replayBoard = decoded ? boardById(decoded.boardId) : undefined;
-  if (decoded && replayBoard) {
+  if (decoded && replayBoard && verifyReplay(replayBoard, decoded.route)) {
     board = replayBoard;
     run = makeRun(board, settings);
     replay = { ...decoded, code: replayCode ?? '' };
@@ -129,6 +159,13 @@ const initialiseSession = (): void => {
   }
   board = isDemo ? (boardById('practice-01') ?? dailyBoard()) : dailyBoard();
   run = makeRun(board, settings);
+  if (isDemo) {
+    const sampleReplay = decodeReplay(demoReplayCode);
+    if (sampleReplay) {
+      replay = { ...sampleReplay, code: demoReplayCode };
+      ghostIndex = 1;
+    }
+  }
 };
 
 const navigate = (url: string): void => {
@@ -140,7 +177,7 @@ const navigate = (url: string): void => {
   endConfirmation = false;
   pendingBoardId = null;
   initialiseSession();
-  render(true);
+  render(archiveRequested() ? '#archive-title' : 'h1');
 };
 
 const boardSymbol = (x: number, y: number): string => {
@@ -165,7 +202,7 @@ const boardGrid = (): string => {
     return `<div class="tile" aria-hidden="true">${boardSymbol(x, y)}</div>`;
   }).join('');
   const goal = `Board ${board.label}. Connect Relay 1, Relay 2, and Relay 3 in order, then reach the exit. ${run.rescues.length} of ${board.rescues.length} optional rescues collected.`;
-  return `<div class="board-wrap"><div class="board" role="img" aria-label="${escapeHtml(goal)}">${cells}</div><p class="board-key"><span><b class="key-player">●</b> You</span><span><b class="key-relay">◆</b> Relay</span><span><b class="key-rescue">○</b> Rescue</span><span><b class="key-exit">↗</b> Exit</span></p></div>`;
+  return `<div class="board-wrap"><div class="board" role="img" aria-label="${escapeHtml(goal)}" ${replay ? `data-ghost-step="${ghostIndex}" data-ghost-length="${replay.route.length}"` : ''}>${cells}</div><p class="board-key"><span><b class="key-player">●</b> You</span><span><b class="key-relay">◆</b> Relay</span><span><b class="key-rescue">○</b> Rescue</span><span><b class="key-exit">↗</b> Exit</span></p></div>`;
 };
 
 const cardMarkup = (card: RallyCard, label: string): string => `
@@ -185,7 +222,7 @@ const endMarkup = (): string => {
     shareUrl.searchParams.set('replay', code);
     return `<section class="end-screen win" aria-labelledby="end-title">
       <p class="eyebrow">Board complete</p>
-      <h2 id="end-title">You reached the exit</h2>
+      <h2 id="end-title" tabindex="-1">You reached the exit</h2>
       <p>Replay this board to improve one part of your rally card.</p>
       ${cardMarkup(currentCard(), 'This run')}
       <div class="end-actions"><button class="button button-primary" type="button" data-action="restart">Play this board again</button><button class="button button-secondary" type="button" data-action="copy-code">Copy replay code</button></div>
@@ -196,7 +233,7 @@ const endMarkup = (): string => {
   if (run.status === 'lost') {
     return `<section class="end-screen loss" aria-labelledby="end-title">
       <p class="eyebrow">Run over</p>
-      <h2 id="end-title">The route was not completed</h2>
+      <h2 id="end-title" tabindex="-1">The route was not completed</h2>
       <p>Try the same board again. Your previous best remains visible.</p>
       <div class="end-actions"><button class="button button-primary" type="button" data-action="restart">Restart this board</button><button class="button button-secondary" type="button" data-action="select-daily">Choose the daily board</button></div>
     </section>`;
@@ -207,7 +244,7 @@ const endMarkup = (): string => {
 const boardPicker = (): string => {
   const buttons = practiceBoards().map((practice) => `<button class="archive-board ${practice.id === board.id ? 'selected' : ''}" type="button" data-action="select-board" data-board="${practice.id}" aria-pressed="${practice.id === board.id}">${practice.label.replace('Practice ', '')}</button>`).join('');
   return `<section class="archive-section" id="archive" aria-labelledby="archive-title">
-    <div class="section-heading"><p class="eyebrow">Permanent archive</p><h2 id="archive-title">Choose a practice board</h2><p>These 20 boards stay available. The daily board changes each day.</p></div>
+    <div class="section-heading"><p class="eyebrow">Permanent archive</p><h2 id="archive-title" tabindex="-1">Choose a practice board</h2><p>These 20 boards stay available. The daily board changes each day.</p></div>
     <div class="archive-controls"><button class="button button-secondary" type="button" data-action="select-daily">Play today’s board</button><span>Seed: <code>${escapeHtml(board.seed)}</code></span></div>
     ${pendingBoardId ? `<div class="inline-confirmation" role="alert"><p>Switch boards? The current run will end without a score.</p><button class="button button-danger" type="button" data-action="confirm-switch">Switch board</button><button class="button button-secondary" type="button" data-action="cancel-switch">Keep this board</button></div>` : ''}
     <div class="archive-grid" role="group" aria-label="Twenty permanent practice boards">${buttons}</div>
@@ -243,7 +280,7 @@ const settingsDialog = (): string => settingsOpen ? `<dialog id="settings-dialog
   <form method="dialog" class="dialog-content"><div class="dialog-heading"><h2 id="settings-title">Game settings</h2><button class="icon-button" type="button" data-action="close-settings" aria-label="Close settings">×</button></div>
   <label class="check-row"><input type="checkbox" data-setting="assist" ${settings.assist ? 'checked' : ''} /> <span><strong>Assist mode</strong><small>Adds 45 seconds to a new run.</small></span></label>
   <label class="check-row"><input type="checkbox" data-setting="muted" ${settings.muted ? 'checked' : ''} /> <span><strong>Mute route sounds</strong><small>Route sounds begin only after you move.</small></span></label>
-  <label class="check-row"><input type="checkbox" data-setting="lowMotion" ${settings.lowMotion ? 'checked' : ''} /> <span><strong>Reduce movement</strong><small>Removes tile movement in this game.</small></span></label>
+  <label class="check-row"><input type="checkbox" data-setting="lowMotion" ${settings.lowMotion ? 'checked' : ''} /> <span><strong>Reduce movement</strong><small>Shows shared replays without route animation.</small></span></label>
   <button class="button button-primary" type="button" data-action="close-settings">Save settings</button></form>
 </dialog>` : '';
 
@@ -259,19 +296,19 @@ const footer = (): string => `<footer class="site-footer"><p>Short routing puzzl
 const gamePage = (): string => {
   const best = bests[board.id];
   const demoMessage = demoNotice || 'Demo — sample data, nothing is saved to your real game.';
-  const demoDetail = demoNotice ? 'The sample board was restored in demo storage.' : 'Practice 01 includes a sample best card and stays in demo storage.';
-  const demoBanner = isDemo ? `<aside class="demo-banner" role="status"><strong>${demoMessage}</strong><span>${demoDetail}</span><button class="text-button" type="button" data-action="reset-demo">Reset demo</button><button class="text-button" type="button" data-action="start-real">Start for real</button></aside>` : '';
+  const demoDetail = demoNotice ? 'The sample board and route were restored in demo storage.' : 'Practice 01 includes a sample best card and shared route.';
+  const demoBanner = isDemo ? `<aside class="demo-banner" aria-label="Demo sandbox"><strong>${demoMessage}</strong><span>${demoDetail}</span><button class="text-button" type="button" data-action="reset-demo">Reset demo</button><button class="text-button" type="button" data-action="start-real">Start for real</button></aside>` : '';
   return `${header()}<main id="main" tabindex="-1" class="game-main ${settings.lowMotion ? 'motion-reduced' : ''}">
     <section class="game-intro" aria-labelledby="game-title">
-      <div class="intro-copy"><p class="eyebrow">A 90-second routing puzzle</p><h1 id="game-title">Connect every relay before time ends</h1><p class="lede">For puzzle players who want a personal route score, not a rank table.</p>
-      <div class="intro-actions">${isDemo ? '<button class="button button-primary" type="button" data-action="start">Start the sample board</button>' : '<button class="button button-primary" type="button" data-action="try-demo">Try it with sample data</button>'}<span>${isDemo ? 'Start with a sample best card.' : 'Loads a practice board and a shared route. It does not change your game.'}</span></div>
+      <div class="intro-copy"><p class="eyebrow">A 90-second routing puzzle</p><h1 id="game-title" tabindex="-1">Connect every relay before time ends</h1><p class="lede">For puzzle players who want a personal route score, not a rank table.</p>
+      <div class="intro-actions">${isDemo ? '<button class="button button-primary" type="button" data-action="start">Start the sample board</button>' : '<button class="button button-primary" type="button" data-action="try-demo">Try it with sample data</button>'}<span>${isDemo ? 'Start with a sample best card and shared route.' : 'Loads a practice board with a shared route. It does not change your game.'}</span></div>
       <ul class="plain-facts"><li>Free to play</li><li>No account required</li><li>Saves in this browser</li></ul></div>
       <div class="map-caption" aria-hidden="true"><span>◆</span><span>▲</span><span>■</span><i></i><b>↗</b></div>
     </section>
     ${demoBanner}
     <section class="game-stage" aria-labelledby="board-title">
-      <div class="stage-heading"><div><p class="eyebrow">${escapeHtml(board.seed)}</p><h2 id="board-title">${escapeHtml(board.label)}</h2></div><div class="status-strip"><span>Time <strong id="timer" data-testid="timer">${formatTime(run.timeRemaining)}</strong></span><span>Relays <strong>${run.relays.length}/3</strong></span><span>Rescues <strong>${run.rescues.length}/3</strong></span></div></div>
-      <p class="goal-line">Goal: connect ◆, ▲, ■ in order, then reach ↗. Optional ○ rescues improve your card.</p>
+      <div class="stage-heading"><div><p class="eyebrow">${escapeHtml(board.seed)}</p><h2 id="board-title">${escapeHtml(board.label)}</h2></div><div class="status-strip"><span>Time <strong id="timer" data-testid="timer">${formatTime(run.timeRemaining)}</strong></span><span>Relays <strong>${run.relays.length}/3</strong></span><span>Rescues <strong>${run.rescues.length}/3</strong></span>${replay ? '<span data-testid="shared-route-status">Shared route <strong>loaded</strong></span>' : ''}</div></div>
+      <p class="goal-line">Goal: connect ◆, ▲, ■ in order, then reach ↗. Fewer moves and optional ○ rescues improve your card.</p>
       <div class="play-area">${boardGrid()}<div class="play-side"><p id="game-feedback" class="feedback" aria-live="polite">${escapeHtml(run.feedback)}</p>${gameControls()}<p class="keyboard-note">Use Arrow keys or WASD. Touch the direction buttons on a phone.</p>${best ? cardMarkup(best, isDemo ? 'Sample best' : 'Your best') : '<p class="best-empty">Finish a board to save a personal best here.</p>'}<p class="runtime-note" id="runtime-rate" data-testid="runtime-rate">60 Hz update target</p></div></div>
       ${endMarkup()}
     </section>
@@ -284,22 +321,17 @@ const gamePage = (): string => {
 
 const informationPage = (kind: 'privacy' | 'terms'): string => {
   const privacy = kind === 'privacy';
-  const title = privacy ? 'Privacy — Rankless Rally' : 'Terms — Rankless Rally';
-  document.title = title;
-  return `${header()}<main id="main" tabindex="-1" class="information-page"><p class="eyebrow">Rankless Rally</p><h1>${privacy ? 'Keep puzzle progress in your browser' : 'Play a free puzzle game'}</h1>${privacy ? `<p class="lede">Rankless Rally stores settings, a current run, and personal best cards in your browser. It does not require an account.</p><h2>What is stored</h2><p>The game uses local browser storage. Demo data uses a separate demo storage area and is removed when you leave or reset the demo.</p><h2>What is sent</h2><p>The game does not send gameplay, names, or tracking events to a service. A replay code contains a board identifier and move letters that you choose to copy.</p><h2>Remove your data</h2><p>Use your browser’s site-data controls to remove saved settings and cards. Reset demo removes only demo data.</p>` : `<p class="lede">Rankless Rally is free to play. It is for personal puzzle play and shareable replay codes.</p><h2>Using the game</h2><p>You may play the daily board and every practice board without an account. Do not use the game to send harmful material through replay codes.</p><h2>Availability</h2><p>The game is offered as is. Browser storage can be removed by your browser or its privacy settings.</p><h2>Contact</h2><p>This product is built by Param Factory. The product site has no payment or account service.</p>`}</main>${footer()}<p id="route-announcement" class="sr-only" aria-live="polite"></p>`;
+  return `${header()}<main id="main" tabindex="-1" class="information-page"><p class="eyebrow">Rankless Rally</p><h1 tabindex="-1">${privacy ? 'Keep puzzle progress in your browser' : 'Play a free puzzle game'}</h1>${privacy ? `<p class="lede">Rankless Rally stores settings, a current run, and personal best cards in your browser. It does not require an account.</p><h2>What is stored</h2><p>The game uses local browser storage. Demo data uses a separate demo storage area and is removed when you leave or reset the demo.</p><h2>What is sent</h2><p>The game does not send gameplay, names, or tracking events to a service. A replay code contains a board identifier and move letters that you choose to copy.</p><h2>Remove your data</h2><p>Use your browser’s site-data controls to remove saved settings and cards. Reset demo removes only demo data.</p>` : `<p class="lede">Rankless Rally is free to play. It is for personal puzzle play and shareable replay codes.</p><h2>Using the game</h2><p>You may play the daily board and every practice board without an account. Do not use the game to send harmful material through replay codes.</p><h2>Availability</h2><p>The game is offered as is. Browser storage can be removed by your browser or its privacy settings.</p><h2>Contact</h2><p>This product is built by Param Factory. The product site has no payment or account service.</p>`}</main>${footer()}<p id="route-announcement" class="sr-only" aria-live="polite"></p>`;
 };
 
 const notFoundPage = (): string => {
-  document.title = 'Page not found — Rankless Rally';
-  return `${header()}<main id="main" tabindex="-1" class="not-found"><p class="eyebrow">404</p><h1>Choose a board that exists</h1><p>This page is not on the route map. Go back to the daily board or the practice archive.</p><a class="button button-primary" href="/" data-route>Play a board</a></main>${footer()}<p id="route-announcement" class="sr-only" aria-live="polite"></p>`;
+  return `${header()}<main id="main" tabindex="-1" class="not-found"><p class="eyebrow">404</p><h1 tabindex="-1">Choose a board that exists</h1><p>This page is not on the route map. Go back to the daily board or the practice archive.</p><a class="button button-primary" href="/" data-route>Play a board</a></main>${footer()}<p id="route-announcement" class="sr-only" aria-live="polite"></p>`;
 };
 
-const pageTitle = (): string => isDemo ? 'Demo — Rankless Rally' : 'Rankless Rally — play short routing puzzles';
-
-const render = (moveFocus = false): void => {
+const render = (focusTarget?: string): void => {
   const page = pageName();
+  setRouteMetadata(page);
   if (page === 'game') {
-    document.title = pageTitle();
     app.innerHTML = gamePage();
   } else if (page === 'privacy' || page === 'terms') {
     app.innerHTML = informationPage(page);
@@ -308,12 +340,13 @@ const render = (moveFocus = false): void => {
   }
   if (settingsOpen) document.querySelector<HTMLDialogElement>('#settings-dialog')?.showModal();
   if (pauseOpen) document.querySelector<HTMLDialogElement>('#pause-dialog')?.showModal();
-  if (moveFocus) {
+  if (focusTarget) {
     requestAnimationFrame(() => {
-      const heading = document.querySelector<HTMLElement>('h1');
-      heading?.focus();
+      const focusable = document.querySelector<HTMLElement>(focusTarget);
+      focusable?.focus({ preventScroll: focusTarget === '#archive-title' });
+      if (focusTarget === '#archive-title') focusable?.scrollIntoView({ block: 'start' });
       const announcement = document.querySelector<HTMLElement>('#route-announcement');
-      if (announcement && heading) announcement.textContent = heading.textContent ?? '';
+      if (announcement && focusable) announcement.textContent = focusable.textContent ?? '';
     });
   }
 };
@@ -367,8 +400,9 @@ const startRun = (): void => {
 
 const moveRun = (direction: Direction): void => {
   if (pageName() !== 'game' || run.status === 'paused' || run.status === 'won' || run.status === 'lost') return;
+  const movesBefore = run.route.length;
   run = routeMove(board, run, direction);
-  playTone();
+  if (run.route.length > movesBefore) playTone();
   if (run.status === 'won') {
     const candidate = currentCard();
     const previous = bests[board.id];
@@ -385,7 +419,8 @@ const endRun = (message: string): void => {
   run = { ...run, status: 'lost', feedback: message };
   pauseOpen = false;
   endConfirmation = false;
-  persistAndRender();
+  saveRun();
+  render('#end-title');
 };
 
 const stopGhost = (): void => {
@@ -398,10 +433,15 @@ const playGhost = (): void => {
   stopGhost();
   ghostIndex = 0;
   const positions = replayPositions(board, replay.route);
+  if (settings.lowMotion || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    ghostIndex = positions.length - 1;
+    render();
+    return;
+  }
   const step = (): void => {
     ghostIndex += 1;
     render();
-    if (ghostIndex < positions.length - 1) ghostTimer = window.setTimeout(step, settings.lowMotion || matchMedia('(prefers-reduced-motion: reduce)').matches ? 1 : 220);
+    if (ghostIndex < positions.length - 1) ghostTimer = window.setTimeout(step, 220);
     else ghostTimer = null;
   };
   if (positions.length > 1) ghostTimer = window.setTimeout(step, 1);
@@ -443,7 +483,7 @@ document.addEventListener('click', (event) => {
       pauseOpen = false;
       endConfirmation = false;
       saveRun();
-      render();
+      render('[data-action="pause"]');
     }
   }
   if (action === 'restart') {
@@ -460,11 +500,11 @@ document.addEventListener('click', (event) => {
   }
   if (action === 'close-settings') {
     settingsOpen = false;
-    render();
+    render('[data-action="settings"]');
   }
   if (action === 'ask-end') {
     endConfirmation = true;
-    render();
+    render('[data-action="end-run"]');
   }
   if (action === 'keep-run') {
     endConfirmation = false;
@@ -496,7 +536,7 @@ document.addEventListener('click', (event) => {
     clearDemoStore();
     demoNotice = 'Demo reset. Your real game was not changed.';
     initialiseSession();
-    render();
+    render('[data-action="reset-demo"]');
   }
   if (action === 'start-real' && isDemo) {
     clearDemoStore();
@@ -513,7 +553,7 @@ document.addEventListener('change', (event) => {
   saveSettings();
   if (run.status === 'ready') run = makeRun(board, settings);
   saveRun();
-  render();
+  render(`[data-setting="${setting}"]`);
 });
 
 document.addEventListener('submit', (event) => {
@@ -525,8 +565,8 @@ document.addEventListener('submit', (event) => {
   const decoded = decodeReplay(code);
   const replayBoard = decoded ? boardById(decoded.boardId) : undefined;
   const error = document.querySelector<HTMLElement>('#replay-error');
-  if (!decoded || !replayBoard) {
-    if (error) error.textContent = 'This replay code is not valid. Paste a code that starts with RR1.';
+  if (!decoded || !replayBoard || !verifyReplay(replayBoard, decoded.route)) {
+    if (error) error.textContent = 'This replay code is not valid. Paste a completed code that starts with RR1.';
     return;
   }
   board = replayBoard;
@@ -542,7 +582,7 @@ document.addEventListener('keydown', (event) => {
   if (element?.matches('input, textarea, select')) return;
   if (event.key === 'Escape' && settingsOpen) {
     settingsOpen = false;
-    render();
+    render('[data-action="settings"]');
     return;
   }
   if (event.key === 'Escape' && pauseOpen) {
@@ -552,7 +592,7 @@ document.addEventListener('keydown', (event) => {
     }
     pauseOpen = false;
     endConfirmation = false;
-    render();
+    render('[data-action="pause"]');
     return;
   }
   if (event.key.toLowerCase() === 'p' && run.status === 'playing') {
@@ -580,7 +620,7 @@ document.addEventListener('click', (event) => {
 window.addEventListener('popstate', () => {
   stopGhost();
   initialiseSession();
-  render(true);
+  render(archiveRequested() ? '#archive-title' : 'h1');
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -625,5 +665,5 @@ const gameLoop = (now: number): void => {
 };
 
 initialiseSession();
-render(true);
+render(archiveRequested() ? '#archive-title' : undefined);
 requestAnimationFrame(gameLoop);

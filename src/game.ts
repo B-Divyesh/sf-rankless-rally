@@ -166,9 +166,10 @@ const generatedBoard = (id: string, label: string, seed: string, wallCount = 10)
 
 const isoDate = (): string => new Date().toISOString().slice(0, 10);
 
+export const dailyBoardForDate = (date: string): Board => generatedBoard(`daily-${date}`, `Daily board · ${date}`, `DAILY-${date}`);
+
 export const dailyBoard = (): Board => {
-  const date = isoDate();
-  return generatedBoard(`daily-${date}`, `Daily board · ${date}`, `DAILY-${date}`);
+  return dailyBoardForDate(isoDate());
 };
 
 export const practiceBoards = (): Board[] => [
@@ -182,7 +183,8 @@ export const practiceBoards = (): Board[] => [
 ];
 
 export const boardById = (id: string): Board | undefined => {
-  if (id === dailyBoard().id) return dailyBoard();
+  const dailyMatch = /^daily-(\d{4}-\d{2}-\d{2})$/.exec(id);
+  if (dailyMatch) return dailyBoardForDate(dailyMatch[1]);
   return practiceBoards().find((board) => board.id === id);
 };
 
@@ -241,6 +243,17 @@ export const rallyCard = (board: Board, run: Run): RallyCard => {
     elegance: Math.min(100, Math.round((quickest / Math.max(quickest, run.route.length)) * 100)),
     rescues: run.rescues.length
   };
+};
+
+export const verifyReplay = (board: Board, route: Direction[]): boolean => {
+  if (route.length === 0) return false;
+  let replayRun = makeRun(board, defaultSettings);
+  for (const direction of route) {
+    const previousLength = replayRun.route.length;
+    replayRun = routeMove(board, replayRun, direction);
+    if (replayRun.route.length !== previousLength + 1) return false;
+  }
+  return replayRun.status === 'won';
 };
 
 const neighbors = (board: Board, point: Point): Point[] => (Object.keys(vectors) as Direction[])
