@@ -1,2 +1,55 @@
-# sf-rankless-rally
-Rankless Rally — Param Factory browser game
+# Rankless Rally
+
+Rankless Rally is a free browser game for puzzle players who want to improve a personal route score instead of a rank. Start a sample board without a sign-in or payment step at [`/demo`](https://rankless-rally.sociobot.in/demo).
+
+A standard board starts with 90 seconds. Connect three relays in order, reach the exit, and compare speed left, elegance, and rescues on a personal rally card. Play with a mouse, touch controls, Arrow keys, or WASD.
+
+## What is included
+
+- One daily board and 20 permanent practice boards.
+- A restartable 90-second run, pause/recovery, local settings, and an assist option that gives new runs 135 seconds.
+- Self-contained replay codes. A player can copy a completed route and another browser can load it without an account.
+- A one-click demo at `/demo`. Demo state uses separate `demo:rankless-rally:*` browser-storage keys. Resetting it does not change real-game data.
+- No external scripts, fonts, analytics, ads, accounts, payment flow, or backend service.
+
+The static build deliberately does not claim server-side anti-cheat or server-persisted rooms. Replay codes are portable move logs chosen and copied by the player. Server verification remains a future backend dependency if hosted competition is added.
+
+## Run locally
+
+Requires Node.js 22+ and npm.
+
+```bash
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173/demo` for the isolated sample game.
+
+## Verify
+
+```bash
+npm test
+npm run build
+```
+
+`npm test` builds the app, runs every Playwright claim check in desktop and phone-sized Chromium, tests a real win route, restart, settings persistence, demo isolation, shared replay in an independent browser, archive, privacy requests, fixed-step timing, route errors/recovery, legal routes, 404 handling, console errors, and serious/critical Axe findings.
+
+Every public behavior is listed in [`.factory/claims.json`](.factory/claims.json). Run one declared claim from a clean checkout with its exact `test` command, for example:
+
+```bash
+npm test -- --grep @claim:complete-run
+```
+
+The static output is written to `dist/`. `staticwebapp.config.json` is copied into that directory with security headers, SPA fallback, and the designed 404 rewrite.
+
+## Deploy
+
+This is a static Vite deployment for `https://rankless-rally.sociobot.in`. Build with `npm run build`, then publish `dist/` using the product’s existing factory static deployment configuration. It has no database, service process, volume, environment variable, or external provider to configure.
+
+## Privacy and terms
+
+The game saves settings, a current run, and personal best cards in browser storage. The demo uses a separate storage namespace. See [`/privacy`](https://rankless-rally.sociobot.in/privacy) and [`/terms`](https://rankless-rally.sociobot.in/terms).
+
+## License
+
+MIT. See [LICENSE](LICENSE).

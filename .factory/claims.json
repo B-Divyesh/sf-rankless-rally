@@ -1,0 +1,100 @@
+[
+  {
+    "id": "complete-run",
+    "claim": "Finish a routed board and see a three-part rally card.",
+    "where": "game end screen, README",
+    "test": "npm test -- --grep @claim:complete-run",
+    "sandbox": "fresh browser context at /demo; keyboard route reaches the exit"
+  },
+  {
+    "id": "ninety-second-run",
+    "claim": "Start a standard board with 90 seconds.",
+    "where": "game first screen, README",
+    "test": "npm test -- --grep @claim:ninety-second-run",
+    "sandbox": "fresh browser context at /demo; inspect the standard timer"
+  },
+  {
+    "id": "free-no-account",
+    "claim": "Start sample play without a sign-in or payment step.",
+    "where": "game first screen, terms, README",
+    "test": "npm test -- --grep @claim:free-no-account",
+    "sandbox": "fresh browser context at /demo; start the board directly"
+  },
+  {
+    "id": "restart-reset",
+    "claim": "Restart clears the timer, route, and run score.",
+    "where": "game controls, README",
+    "test": "npm test -- --grep @claim:restart-reset",
+    "sandbox": "fresh browser context at /demo; finish then restart"
+  },
+  {
+    "id": "settings-persist",
+    "claim": "Save assist and reduced-movement settings in this browser.",
+    "where": "settings dialog, README",
+    "test": "npm test -- --grep @claim:settings-persist",
+    "sandbox": "fresh browser context at /demo; change settings and reload"
+  },
+  {
+    "id": "assist-extra-time",
+    "claim": "Give a new assisted run 135 seconds.",
+    "where": "settings dialog, README",
+    "test": "npm test -- --grep @claim:assist-extra-time",
+    "sandbox": "fresh browser context at /demo; enable Assist mode and inspect the timer"
+  },
+  {
+    "id": "demo-isolation",
+    "claim": "Reset demo data without changing a real game run.",
+    "where": "demo banner, README",
+    "test": "npm test -- --grep @claim:demo-isolation",
+    "sandbox": "one context holds a real run, enters /demo, resets, then returns"
+  },
+  {
+    "id": "keyboard-controls",
+    "claim": "Route with Arrow keys or WASD.",
+    "where": "game controls, README",
+    "test": "npm test -- --grep @claim:keyboard-controls",
+    "sandbox": "fresh browser context at /demo; Arrow keys connect Relay 1"
+  },
+  {
+    "id": "touch-controls",
+    "claim": "Route with 44-pixel on-screen direction controls.",
+    "where": "game controls, README",
+    "test": "npm test -- --grep @claim:touch-controls",
+    "sandbox": "fresh browser context at /demo; click visible direction controls to connect Relay 1"
+  },
+  {
+    "id": "pause-recovery",
+    "claim": "Restore an unfinished run after a refresh.",
+    "where": "README",
+    "test": "npm test -- --grep @claim:pause-recovery",
+    "sandbox": "fresh browser context at /demo; pause after a move and reload"
+  },
+  {
+    "id": "shared-replay",
+    "claim": "Open a completed replay code in another browser without an account.",
+    "where": "end screen, replay section, README",
+    "test": "npm test -- --grep @claim:shared-replay",
+    "sandbox": "finish /demo board, copy displayed code, load it in a second browser context"
+  },
+  {
+    "id": "daily-and-archive",
+    "claim": "Play one daily board and 20 permanent practice boards.",
+    "where": "archive section, README",
+    "test": "npm test -- --grep @claim:daily-and-archive",
+    "sandbox": "fresh browser context at /demo; inspect archive and switch boards"
+  },
+  {
+    "id": "no-tracking",
+    "claim": "The sample game makes no third-party requests.",
+    "where": "privacy section, README",
+    "test": "npm test -- --grep @claim:no-tracking",
+    "sandbox": "fresh browser context at /demo; record all requests while playing and changing settings"
+  },
+  {
+    "id": "fixed-60hz",
+    "claim": "Use a measured 60 Hz update loop while a run is active.",
+    "where": "game runtime note, README",
+    "test": "npm test -- --grep @claim:fixed-60hz",
+    "sandbox": "fresh browser context at /demo; sample fixed simulation ticks after starting"
+  }
+]

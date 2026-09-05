@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://rankless-rally.sociobot.in/sitemap.xml
