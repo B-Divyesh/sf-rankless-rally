@@ -3,7 +3,7 @@
 ## Release
 
 - Implementation commit: `a233ee515b65265dcb9332d5911ab3741b915665`
-- Verification documentation commit: recorded in the follow-up handoff reference commit.
+- Verification documentation commit: `6a2f9c8ebf0aa563cb935451a26a16349e5127c6`.
 - Deployment: static production artifact uploaded through `/opt/fleet/lib/deploy-static.sh rankless-rally dist`.
 - Live URL: `https://rankless-rally.sociobot.in`
 
