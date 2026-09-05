@@ -7,12 +7,24 @@
 - Deployment: product static target, deployed from `dist/` on 2026-09-05.
 - Live URL: <https://rankless-rally.sociobot.in>
 
+## Independent verification 2
+
+Verification 2 reviewed runtime implementation `d15b43bd58af170d659b6c3e97863f96fa81062e` and documentation revision `fb3cf529464b5b0ffb07013cc20229a11e652a79`.
+
+**Verdict: FAIL — 2 findings, 0 untested claims.** See [`.factory/verification-2.md`](verification-2.md).
+
+- RRV2-01: Archive navigation focuses the correct heading, but smooth scrolling settles past it. The heading ends 208.58 CSS pixels above the desktop viewport and 82.81 pixels above the phone viewport.
+- RRV2-02: server-authoritative replay verification remains absent because this static product has no backend or SQLite state.
+- `npm test` passed 46 checks. All 20 claim commands passed separately in desktop and phone projects.
+- Live win, loss, timeout, recovery, demo isolation, independent replay, routes, privacy, accessibility, and performance were exercised. Lighthouse scored 100 in all four categories; full Axe found zero violations in light and dark.
+- Live HTML, JavaScript, and CSS hashes match the clean candidate build.
+
 Rankless Rally is a free 90-second routing puzzle for players who want to improve a personal route score without a ranked ladder. A run uses mouse, touch controls, Arrow keys, or WASD. The first screen tells visitors to connect relays before time ends, identifies puzzle players who want a personal score, and starts with **Try it with sample data**.
 
 ## What changed
 
 - The first-screen sample action now opens Practice 01 with a sample rally card and a visible shared-route marker. Reset restores that sample without changing real-game storage.
-- Archive navigation now scrolls and focuses the archive heading. Route changes focus the new page heading, and closing settings restores focus to the Settings control.
+- Archive navigation now changes the address and focuses the archive heading, but verification 2 found that the settled scroll position places the heading above the viewport. Other route changes focus the new page heading, and closing settings restores focus to the Settings control.
 - Header, privacy, and footer links now meet the 44 by 44 pixel touch-target requirement. The demo banner no longer uses an invalid ARIA role.
 - `/`, `/demo`, `/privacy`, and `/terms` are emitted as real static pages with route-specific titles, descriptions, social metadata, and canonicals. Unknown routes now return the designed 404 page with HTTP 404.
 - Replay logs now reject incomplete or impossible deterministic routes before display. Historic daily replay ids can resolve their board date. This is browser-side validation only.
@@ -46,7 +58,7 @@ Evidence screenshots are in `/work/.evidence/rankless-rally-repair-1/`:
 | Finding | Status |
 | --- | --- |
 | Sample promised a shared route | Fixed: demo loads a visible completed shared route. |
-| Archive changed URL only | Fixed: navigation scrolls and focuses the archive heading. |
+| Archive changed URL only | Reopened: address and focus are correct, but the settled scroll position overshoots the archive heading. See RRV2-01. |
 | Route and dialog focus loss | Fixed: focusable headings and explicit focus restoration. |
 | Small phone targets | Fixed: site navigation and footer links are at least 44 px in both dimensions. |
 | Invalid demo-banner ARIA | Fixed: the banner remains an `aside` without `role="status"`. |
@@ -57,6 +69,7 @@ Evidence screenshots are in `/work/.evidence/rankless-rally-repair-1/`:
 
 ## Known gaps and next steps
 
-- The only remaining brief gap is server-authoritative replay verification. It cannot be truthfully provided by the current static deployment; no backend or external provider was added.
+- Fix Archive navigation so the heading remains visible after scrolling settles, and make the regression test wait for the final scroll position.
+- Server-authoritative replay verification remains a brief gap. It cannot be truthfully provided by the current static deployment; no backend or external provider was added.
 - The game does not promise offline reload or updates, so no service-worker flow is shipped.
 - No paid offer is advertised, so there is no billing registration metadata. The free core, archive, score cards, and replays remain available without an account.
