@@ -131,7 +131,10 @@ pub fn build_state(
 ) -> Result<AppState, String> {
     std::fs::create_dir_all(&data_dir)
         .map_err(|error| format!("could not create data directory: {error}"))?;
-    let database_path = data_dir.join("rankless-rally.sqlite3");
+    // The initial WAL-based revision used a different filename. Keep it intact
+    // rather than deleting a mounted file; this verifier uses SQLite's default
+    // rollback journal, which is suitable for the required one-replica writer.
+    let database_path = data_dir.join("rankless-rally-replays.sqlite3");
     let connection = Connection::open(&database_path)
         .map_err(|error| format!("could not open SQLite: {error}"))?;
     connection
