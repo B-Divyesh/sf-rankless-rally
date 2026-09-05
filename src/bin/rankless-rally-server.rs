@@ -11,6 +11,14 @@ async fn main() {
         .unwrap_or(8080);
     let data_dir = data_dir_from_environment();
     let build_sha = option_env!("BUILD_SHA").unwrap_or("dev").to_owned();
+    let address = format!("0.0.0.0:{port}");
+    let listener = tokio::net::TcpListener::bind(&address)
+        .await
+        .unwrap_or_else(|error| panic!("could not listen on {address}: {error}"));
+    eprintln!(
+        "{{\"event\":\"socket_bound\",\"address\":{address:?},\"database_path\":{:?}}}",
+        data_dir.display().to_string()
+    );
     let state = match build_state(
         data_dir.clone(),
         static_dir_from_environment(),
@@ -23,10 +31,6 @@ async fn main() {
         }
     };
     eprintln!("{{\"event\":\"startup\",\"database_path\":{:?},\"configuration\":\"generated-none\",\"build\":{build_sha:?}}}", data_dir.display().to_string());
-    let address = format!("0.0.0.0:{port}");
-    let listener = tokio::net::TcpListener::bind(&address)
-        .await
-        .unwrap_or_else(|error| panic!("could not listen on {address}: {error}"));
     axum::serve(listener, app(state))
         .with_graceful_shutdown(shutdown_signal())
         .await

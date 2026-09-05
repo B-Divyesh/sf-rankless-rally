@@ -138,7 +138,7 @@ pub fn build_state(
     let connection = Connection::open(&database_path)
         .map_err(|error| format!("could not open SQLite: {error}"))?;
     connection
-        .busy_timeout(Duration::from_secs(5))
+        .busy_timeout(Duration::from_secs(1))
         .map_err(|error| format!("could not configure SQLite timeout: {error}"))?;
     migrate(&connection)?;
     Ok(AppState {
