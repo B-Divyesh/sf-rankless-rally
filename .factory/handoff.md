@@ -1,48 +1,60 @@
 # Rankless Rally handoff
 
-## Release
+## Current verification result
 
-- Implementation commit: `a233ee515b65265dcb9332d5911ab3741b915665`
-- Verification documentation commit: `6a2f9c8ebf0aa563cb935451a26a16349e5127c6`.
-- Deployment: static production artifact uploaded through `/opt/fleet/lib/deploy-static.sh rankless-rally dist`.
+Independent verification 1 is **FAIL** with 9 findings and 5 untested public claims. The full report is [`.factory/verification-1.md`](verification-1.md).
+
+- Runtime implementation: `a233ee515b65265dcb9332d5911ab3741b915665`
+- Claims and documentation revision reviewed: `9775839e2f5165673e2d6638135f4d43de771edb`
 - Live URL: `https://rankless-rally.sociobot.in`
+- The live HTML, JavaScript, and CSS exactly match the clean candidate build.
 
-## What was delivered
+No product code was changed during verification.
 
-Rankless Rally is a free 90-second routing puzzle for players who want to improve a personal score without a ranked ladder. It provides:
+## What works
 
-- a deterministic daily board and 20 permanent practice boards;
-- keyboard (Arrow keys/WASD), pointer, and touch direction controls;
-- a fixed-step 60 Hz loop, pause on hidden tab, recovery after refresh, local settings, mute, reduced movement, and assist time;
-- a three-part rally card for speed left, elegance, and optional rescues;
-- self-contained replay codes that load in another browser without an account;
-- a `/demo` sandbox with separate `demo:rankless-rally:*` storage, a sample card, Reset demo, and Start for real;
-- privacy and terms routes, a designed 404 page, metadata, sitemap, robots file, security headers, original SVG/CSS map art, and no external scripts or fonts.
+- The first desktop and phone screens show the routing job, audience, sample action, and live game board.
+- The one-click demo has isolated storage, a persistent sample label, Practice 01, and a populated sample best card.
+- Reset demo preserves temporary real-game state, and Start for real removes demo keys.
+- A deterministic keyboard run reaches the real win screen and creates a three-part rally card.
+- Timer expiry reaches the real loss screen, and restart restores 1:30.
+- A completed replay code opens and animates in an independent fresh browser.
+- Arrow keys, WASD, pointer, and phone taps work. Settings, pause/reload recovery, assist time, and reduced motion work.
+- Privacy and legal pages load with route titles. No console errors or third-party requests appeared in the tested flow.
 
-The first desktop screen has the job, audience, first action, and live board in one view. The phone screen has the job, audience, and first action before a visible live board; the demo controls remain in a compact fixed bar.
+## Checks run
 
-## Verification completed
+- Clean checkout at `9775839`: `npm ci`, `npm test`, and the build run inside that command.
+- Result: 30 Playwright tests passed across desktop and phone.
+- Every one of the 14 `.factory/claims.json` commands was run separately and passed in both projects.
+- `scripts/verify-url.sh` passed against the five live routes checked.
+- Full and WCAG-tagged Axe checks were run in light and dark treatment.
+- Lighthouse mobile on live `/demo`: Performance 100, Accessibility 99, Best Practices 100, SEO 92; LCP 0.9 s and CLS 0.
+- Live artifacts matched the clean build by SHA-256.
 
-- `npm run build` passed. The output is `dist/`; main JS is 26,641 bytes (9.45 KB gzip) and CSS is 15,870 bytes (4.33 KB gzip).
-- `npm test` passed: 30 Playwright checks across desktop Chromium and iPhone-sized Chromium.
-- Every command in `.factory/claims.json` was run with its exact `npm test -- --grep @claim:<id>` form. All 14 claim commands passed in both browser projects.
-- Playwright Axe integration reported no serious or critical WCAG 2 A/AA findings. The standalone Axe CLI was also attempted; it cannot launch the supplied ChromeDriver in this worker, so the installed Playwright Axe integration is the recorded accessibility result.
-- `scripts/verify-url.sh` passed against local `/demo`, `/privacy`, and `/terms`: title, language, one main, one h1, image alternatives, and no console errors.
-- Lighthouse mobile run against the deployed `/demo`: Performance 100, Accessibility 100, FCP 1.0 s, LCP 1.1 s, CLS 0.
-- Fresh live desktop check: the root title, h1, audience sentence, sample action, and daily board were present without console errors. The board began at 378 px in a 900 px viewport.
-- Fresh live phone check: title, h1, sample action, and a Practice 01 board beginning within the viewport were present without console errors.
-- Live demo check: entered the sample, saw the persistent banner and sample rally card, reset it, then completed Practice 01 using the deterministic keyboard route to the real win screen.
-- Live 404 browser check: `/not-a-route` rendered `Page not found — Rankless Rally` and `Choose a board that exists`.
-- HTTPS root returned 200 with CSP, HSTS, `X-Content-Type-Options`, and Referrer-Policy headers.
+## Findings to resolve
 
-## Earlier evidence and findings
+1. The sample action promises a shared route, but the demo does not preload one.
+2. The Archive header link changes the URL without moving to the archive.
+3. SPA route changes and dialog close actions lose keyboard focus.
+4. Several phone navigation and footer links are under 44 pixels high.
+5. The demo banner assigns `role="status"` to an incompatible `aside`.
+6. Demo and legal routes retain the home canonical URL.
+7. Unknown live URLs render the 404 design with HTTP 200.
+8. Five public behaviors lack complete tagged claim tests.
+9. Deterministic replay logs are not verified server-side as required by the brief.
 
-The retry’s requested controller evidence file (`.factory/controller/rankless-rally-startup-failure.json`) and any previous handoff, design, implementation, review, or verification files were absent from the supplied repository. The only prior commit recorded the brief. The documented Azure pod startup failure was therefore treated as infrastructure-only and not as an assessment of game behavior.
+## Verification commands
 
-The phone visual review initially placed decorative art ahead of the task and pushed the board down. The layout was corrected before release: desktop now puts the live board beside the task, and mobile removes the decoration, shows the task/audience/action first, then shows the board in the first viewport.
+```bash
+npm ci
+npm test
+npm run build
+scripts/verify-url.sh https://rankless-rally.sociobot.in/demo
+```
 
-## Known gaps and next steps
+Run every command listed in `.factory/claims.json` separately after repairs. Do not declare PASS until the report’s findings and untested claims are both zero.
 
-- This static product has no backend, so replay codes are portable deterministic move logs rather than server-persisted rooms. The brief’s desired server-side anti-cheat verification remains an explicit backend dependency; the game does not claim it exists.
-- Unknown URLs are served by the Static Web Apps SPA fallback with HTTP 200, then render the designed in-app 404 state after JavaScript starts. The browser path is complete; strict HTTP 404 semantics would require replacing the broad SPA fallback with explicit deployed route rewrites.
-- There are no payment or AI features because neither is required for the free core game.
+## Evidence
+
+Browser screenshots and the Lighthouse JSON are under `/work/.evidence/rankless-rally-verify-1/`. The required report copy is `/work/.evidence/qa-report.md`, and the machine result is `/work/.evidence/qa-result.json`.
