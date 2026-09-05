@@ -15,6 +15,7 @@ use std::{
     env,
     path::{Component, Path as FilePath, PathBuf},
     sync::{Arc, Mutex},
+    thread,
     time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
@@ -134,10 +135,19 @@ pub fn build_state(
     let connection = Connection::open(&database_path)
         .map_err(|error| format!("could not open SQLite: {error}"))?;
     connection
-        .execute_batch(
-            "PRAGMA journal_mode = WAL;
-             PRAGMA busy_timeout = 5000;
-             CREATE TABLE IF NOT EXISTS replay_records (
+        .busy_timeout(Duration::from_secs(5))
+        .map_err(|error| format!("could not configure SQLite timeout: {error}"))?;
+    migrate(&connection)?;
+    Ok(AppState {
+        database: Arc::new(Mutex::new(connection)),
+        static_dir: Arc::new(static_dir),
+        build_sha: Arc::new(build_sha),
+        rate_limits: Arc::new(Mutex::new(HashMap::new())),
+    })
+}
+
+fn migrate(connection: &Connection) -> Result<(), String> {
+    const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS replay_records (
                code TEXT PRIMARY KEY NOT NULL,
                board_id TEXT NOT NULL,
                moves TEXT NOT NULL,
@@ -145,15 +155,21 @@ pub fn build_state(
                created_at INTEGER NOT NULL,
                expires_at INTEGER
              );
-             CREATE INDEX IF NOT EXISTS replay_records_expiry ON replay_records(expires_at);",
-        )
-        .map_err(|error| format!("could not migrate SQLite: {error}"))?;
-    Ok(AppState {
-        database: Arc::new(Mutex::new(connection)),
-        static_dir: Arc::new(static_dir),
-        build_sha: Arc::new(build_sha),
-        rate_limits: Arc::new(Mutex::new(HashMap::new())),
-    })
+             CREATE INDEX IF NOT EXISTS replay_records_expiry ON replay_records(expires_at);";
+    for attempt in 0..8 {
+        match connection.execute_batch(SCHEMA) {
+            Ok(()) => return Ok(()),
+            Err(error) if is_lock_error(&error) && attempt < 7 => {
+                thread::sleep(Duration::from_millis(250))
+            }
+            Err(error) => return Err(format!("could not migrate SQLite: {error}")),
+        }
+    }
+    Err("could not migrate SQLite after waiting for its one writer".to_owned())
+}
+
+fn is_lock_error(error: &rusqlite::Error) -> bool {
+    matches!(error, rusqlite::Error::SqliteFailure(code, _) if matches!(code.code, rusqlite::ErrorCode::DatabaseBusy | rusqlite::ErrorCode::DatabaseLocked))
 }
 
 pub fn app(state: AppState) -> Router {
