@@ -3,7 +3,7 @@
 ## Release
 
 - Runtime implementation: `d15b43bd58af170d659b6c3e97863f96fa81062e`
-- Documentation revision: recorded in the follow-up handoff commit.
+- Documentation handoff content: `ddd4a1ecdb517b3068d6f091feb1b2ef2ddc6f20`
 - Deployment: product static target, deployed from `dist/` on 2026-09-05.
 - Live URL: <https://rankless-rally.sociobot.in>
 
