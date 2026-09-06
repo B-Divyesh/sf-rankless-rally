@@ -235,9 +235,13 @@ const hydrateDemoReplay = async (): Promise<void> => {
     const response = await fetch('/api/replays/demo', { headers: sandboxHeaders() });
     const nextReplay = response.ok ? routeFromServer(await response.json()) : null;
     if (!nextReplay || !isDemo || new URLSearchParams(location.search).has('replay')) return;
+    const replayChanged = replay?.boardId !== nextReplay.boardId
+      || replay.code !== nextReplay.code
+      || replay.route.join(',') !== nextReplay.route.join(',')
+      || ghostIndex !== 1;
     replay = nextReplay;
     ghostIndex = 1;
-    render();
+    if (replayChanged) render();
   } catch {
     // The bundled sample marker stays available even when a local server is stopped.
   }

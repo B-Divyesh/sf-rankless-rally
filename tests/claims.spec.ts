@@ -347,9 +347,15 @@ test('opens Archive, restores keyboard focus, uses valid ARIA, and keeps all pho
   await page.getByLabel('Main navigation').getByRole('link', { name: 'Privacy' }).click();
   await expect.poll(() => page.evaluate(() => document.activeElement?.tagName)).toBe('H1');
 
+  await page.route('**/api/replays/demo', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 750));
+    await route.continue();
+  });
   await page.goto('/demo');
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Save settings' }).click();
+  await expect.poll(() => page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.action)).toBe('settings');
+  await page.waitForLoadState('networkidle');
   await expect.poll(() => page.evaluate(() => (document.activeElement as HTMLElement | null)?.dataset.action)).toBe('settings');
 
   const targetBoxes = await page.locator('.site-header .wordmark, .site-header nav a, .privacy-section > a, .site-footer a').evaluateAll((elements) => elements.map((element) => {
