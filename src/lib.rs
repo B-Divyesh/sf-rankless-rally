@@ -22,7 +22,10 @@ use std::{
 const DEMO_ROUTE: &str = "RRRRRURUUUUU";
 const DEMO_CODE: &str = "RR2-DEMO-PRACTICE-01";
 const MAX_MOVES: usize = 512;
-const MAX_REQUESTS_PER_MINUTE: u32 = 60;
+// A completed game normally makes one or two replay requests. This leaves
+// plenty of room for a household or a browser's parallel tabs while still
+// bounding an unauthenticated verifier client to a finite minute allowance.
+const MAX_REQUESTS_PER_MINUTE: u32 = 300;
 
 #[derive(Clone)]
 pub struct AppState {

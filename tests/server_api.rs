@@ -145,7 +145,7 @@ async fn api_keeps_demo_replays_inside_the_demo_namespace_and_sets_retry_after()
     assert_eq!(demo_read.status(), StatusCode::OK);
 
     let mut limited = None;
-    for _ in 0..64 {
+    for _ in 0..304 {
         let response = service
             .clone()
             .oneshot(
