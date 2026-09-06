@@ -8,7 +8,7 @@ use axum::{
     Json, Router,
 };
 use rand::{thread_rng, Rng};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -131,12 +131,19 @@ pub fn build_state(
 ) -> Result<AppState, String> {
     std::fs::create_dir_all(&data_dir)
         .map_err(|error| format!("could not create data directory: {error}"))?;
-    // Azure Files retains advisory SQLite locks briefly after a crashed
-    // process. The previous recovery filename was opened by a failed
-    // revision, so start this durable one-replica service on a fresh file
-    // rather than trying to delete or overwrite a mounted database.
-    let database_path = data_dir.join("rankless-rally-replays-v2.sqlite3");
-    let connection = Connection::open(&database_path)
+    // Azure Files does not provide SQLite's byte-range lock semantics. Its
+    // Unix dot-file VFS uses atomic lock files instead, which suits this
+    // product's explicitly one-replica, single-connection writer.
+    //
+    // Do not overwrite the failed startup files on the mounted volume. They
+    // did not receive replay writes, and preserving them is safer than a
+    // destructive recovery action.
+    let database_path = data_dir.join("rankless-rally-replays-v3.sqlite3");
+    let connection = Connection::open_with_flags_and_vfs(
+        &database_path,
+        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE,
+        "unix-dotfile",
+    )
         .map_err(|error| format!("could not open SQLite: {error}"))?;
     connection
         .busy_timeout(Duration::from_secs(1))
