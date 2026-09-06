@@ -43,7 +43,7 @@ The static web output is written to `dist/`. The Rust server serves it and retur
 
 ## Deploy
 
-This product deploys as one Rust container at `https://rankless-rally.sociobot.in`. It serves `dist/` and its replay API from the same origin. The server starts with only `PORT`; it writes SQLite state to `/data/rankless-rally-replays.sqlite3` on the fleet-mounted durable volume and runs as one replica. The product needs no external provider or credential.
+This product deploys as one Rust container at `https://rankless-rally.sociobot.in`. It serves `dist/` and its replay API from the same origin. The server starts with only `PORT`; it writes SQLite state to `/data/rankless-rally-replays-v2.sqlite3` on the fleet-mounted durable volume and runs as one replica. The product needs no external provider or credential.
 
 ## Privacy and terms
 

@@ -131,10 +131,11 @@ pub fn build_state(
 ) -> Result<AppState, String> {
     std::fs::create_dir_all(&data_dir)
         .map_err(|error| format!("could not create data directory: {error}"))?;
-    // The initial WAL-based revision used a different filename. Keep it intact
-    // rather than deleting a mounted file; this verifier uses SQLite's default
-    // rollback journal, which is suitable for the required one-replica writer.
-    let database_path = data_dir.join("rankless-rally-replays.sqlite3");
+    // Azure Files retains advisory SQLite locks briefly after a crashed
+    // process. The previous recovery filename was opened by a failed
+    // revision, so start this durable one-replica service on a fresh file
+    // rather than trying to delete or overwrite a mounted database.
+    let database_path = data_dir.join("rankless-rally-replays-v2.sqlite3");
     let connection = Connection::open(&database_path)
         .map_err(|error| format!("could not open SQLite: {error}"))?;
     connection
