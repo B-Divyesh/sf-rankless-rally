@@ -22,7 +22,7 @@ use std::{
 const DEMO_ROUTE: &str = "RRRRRURUUUUU";
 const DEMO_CODE: &str = "RR2-DEMO-PRACTICE-01";
 const MAX_MOVES: usize = 512;
-const MAX_REQUESTS_PER_SECOND: u32 = 60;
+const MAX_REQUESTS_PER_MINUTE: u32 = 60;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -304,7 +304,7 @@ async fn rate_limit(State(state): State<AppState>, request: Request, next: Next)
         .headers()
         .get("x-forwarded-for")
         .and_then(|value| value.to_str().ok())
-        .and_then(|value| value.split(',').next())
+        .and_then(|value| value.rsplit(',').next())
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .unwrap_or("local")
@@ -324,12 +324,12 @@ async fn rate_limit(State(state): State<AppState>, request: Request, next: Next)
             started: now,
             requests: 0,
         });
-        if now.duration_since(window.started) >= Duration::from_secs(1) {
+        if now.duration_since(window.started) >= Duration::from_secs(60) {
             window.started = now;
             window.requests = 0;
         }
         window.requests += 1;
-        window.requests > MAX_REQUESTS_PER_SECOND
+        window.requests > MAX_REQUESTS_PER_MINUTE
     };
     if limited {
         let mut response = json_error(
@@ -338,7 +338,7 @@ async fn rate_limit(State(state): State<AppState>, request: Request, next: Next)
         );
         response
             .headers_mut()
-            .insert(header::RETRY_AFTER, HeaderValue::from_static("1"));
+            .insert(header::RETRY_AFTER, HeaderValue::from_static("60"));
         return response;
     }
     next.run(request).await
