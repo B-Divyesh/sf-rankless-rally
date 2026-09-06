@@ -1,5 +1,20 @@
 # Rankless Rally handoff
 
+## Verification 4 — 2026-09-06
+
+**FAIL** — fresh independent QA found 1 high-severity live deployment finding and 0 untested claims.
+
+- Implementation candidate: `82f7dd0be762e44fd5ccbf731efef0cfca7d71d2`.
+- Documentation revision reviewed: `a88a925fb45457f54ebb115b6bbb857bb9fa4e9d`.
+- Report: `.factory/verification-4.md`.
+- Live URL: <https://rankless-rally.sociobot.in>.
+
+The public HTML, JavaScript, and CSS exactly match the clean candidate build. The public origin does not expose the candidate replay backend: `/health` and replay reads return the designed HTML 404, replay writes return 405, and 320 allowance requests return 404 without `429` or `Retry-After`. A completed live run cannot issue a replay code, so tenant isolation and restart persistence cannot be exercised live. This reopens the earlier public replay-route finding as `RRV4-01`.
+
+Local verification remains healthy: `npm test` passed 50 browser checks and 6 Rust tests, all 22 claim commands passed separately, and the build produced 30.77 KB JavaScript and 16.10 KB CSS. Fresh desktop and phone checks passed the first screen, one-click sample, realistic sample card, persistent demo label, reset isolation, win, loss, restart, inputs, focus, reduced motion, full Axe, legal routes, and designed HTTP 404. Lighthouse scored 100/100/96/100; the replay 404 console error lowers Best Practices.
+
+Evidence is in `/work/.evidence/rankless-rally-verify-4/`. Restore the product-owned Rust/SQLite service at the public origin, then rerun health, valid and invalid replay creation, independent resolution, tenant isolation, restart persistence, and the 300-request allowance plus `429`/`Retry-After` checks before declaring PASS.
+
 ## Repair 3 — 2026-09-06
 
 **PASS** — the live product now serves its replay API from the same public origin as the game, and the storage notice matches the persisted replay fields.
