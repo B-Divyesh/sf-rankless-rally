@@ -1,5 +1,16 @@
 # Rankless Rally handoff
 
+## Independent verification 3 — 2026-09-06
+
+**FAIL** — independent QA found 2 issues and 1 untested public claim. The implementation candidate is `64cc2c4ddea4f7a8ccbac4b441eb7cc8ba35d02c`; the documentation revision is `e8d21d9266d7726cc11c5896d03756cdcda5b091`.
+
+- A fresh clean checkout passed `npm ci`, all 50 browser checks, all 5 Rust checks, and all 21 declared claim commands separately.
+- The live frontend matches the candidate build byte for byte, but `/health` and replay GET routes return the static HTML 404 and replay POST returns 405. A completed live run cannot receive a replay code. Tenant isolation and restart persistence are therefore not exercisable, and 310 live requests returned 404 with no 429 or `Retry-After`.
+- The README’s server-storage statement says **only** board, moves, code, and expiry are stored, while the schema also stores tenant and creation time. That storage/retention statement has no exact declared claim test.
+- The game loop, one-click sample, reset isolation, win/loss/restart paths, Archive focus, phone controls, route metadata, full Axe scans, and measured phone rendering passed.
+
+Do not use the earlier “live revision is healthy” note as the current release verdict. The full report is [`.factory/verification-3.md`](verification-3.md), with evidence in `/work/.evidence/rankless-rally-verify-3/`.
+
 ## Release
 
 - Runtime implementation deployed to production: `64cc2c4ddea4f7a8ccbac4b441eb7cc8ba35d02c`.
