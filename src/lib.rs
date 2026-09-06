@@ -142,12 +142,18 @@ pub fn build_state(
     // did not receive replay writes, and preserving them is safer than a
     // destructive recovery action.
     let database_path = data_dir.join("rankless-rally-replays-v3.sqlite3");
-    let connection = Connection::open_with_flags_and_vfs(
-        &database_path,
-        OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE,
-        "unix-dotfile",
-    )
-        .map_err(|error| format!("could not open SQLite: {error}"))?;
+    let connection = if data_dir == FilePath::new("/data") {
+        Connection::open_with_flags_and_vfs(
+            &database_path,
+            OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE,
+            "unix-dotfile",
+        )
+    } else {
+        // Local development and tests use their ordinary local filesystem,
+        // which supports SQLite's normal byte-range locks.
+        Connection::open(&database_path)
+    }
+    .map_err(|error| format!("could not open SQLite: {error}"))?;
     connection
         .busy_timeout(Duration::from_secs(1))
         .map_err(|error| format!("could not configure SQLite timeout: {error}"))?;
