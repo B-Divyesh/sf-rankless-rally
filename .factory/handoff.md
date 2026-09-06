@@ -1,5 +1,20 @@
 # Rankless Rally handoff
 
+## Independent review 1 — 2026-09-06
+
+**PASS — 0 findings and 0 untested public claims.**
+
+- Implementation reviewed: `6ea1f1ee8c91e0882216af7fa855c01e132901f3`.
+- Documentation reviewed: `95e9d9da9e518ec2f717c8a06341578f1269e1f3`.
+- Full report: [`.factory/review-1.md`](review-1.md).
+- Evidence: `/work/.evidence/rankless-rally-review-1/`.
+
+Fresh desktop and phone browsers showed the playable board on the first screen. The reviewer entered the one-click demo, checked its persistent sample label and populated card, reset it without changing a real paused run, and completed a deterministic phone win, restart, and loss. The live desktop and phone Playwright suite passed all 52 checks. A recorded phone win/restart/loss run is in the review evidence.
+
+From clean setup, `npm ci`, `npm test` (52 browser and 6 Rust tests), `npm run build`, and every one of the 22 exact claim commands passed. The live public verifier passed health, server validation, independent replay reading, tenant isolation, and 300-request rate limiting with `429`/`Retry-After`. `scripts/verify-url.sh` passed for every public route, including the expected designed 404. Full Axe, privacy-request, keyboard, focus, reduced-motion, legal-route, and metadata checks passed.
+
+No product code changed during the review. No product defect or untested public claim remains known.
+
 ## Independent verification 5 — 2026-09-06
 
 **PASS — 0 findings and 0 untested public claims.**
