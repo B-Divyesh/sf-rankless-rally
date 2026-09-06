@@ -3,6 +3,7 @@ use axum::{
     http::{header, Request, StatusCode},
 };
 use rankless_rally_server::{app, build_state};
+use rusqlite::Connection;
 use std::{
     path::PathBuf,
     time::{SystemTime, UNIX_EPOCH},
@@ -171,5 +172,82 @@ async fn api_keeps_demo_replays_inside_the_demo_namespace_and_sets_retry_after()
             .and_then(|value| value.to_str().ok()),
         Some("60")
     );
+    let _ = std::fs::remove_dir_all(directory);
+}
+
+// @claim:server-storage-metadata
+#[tokio::test]
+async fn claim_server_storage_metadata() {
+    let (state, directory) = test_state();
+    let service = app(state);
+    let before = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs() as i64;
+
+    let public = service
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri("/api/replays")
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(
+                    r#"{"board_id":"practice-01","moves":"RRRRRURUUUUU"}"#,
+                ))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(public.status(), StatusCode::CREATED);
+    let public_code = json(public).await["code"].as_str().unwrap().to_owned();
+
+    let demo = service
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri("/api/replays/demo")
+                .header("x-rankless-sandbox", "demo")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(demo.status(), StatusCode::OK);
+    let demo_code = json(demo).await["code"].as_str().unwrap().to_owned();
+    drop(service);
+
+    let database = Connection::open(directory.join("rankless-rally-replays-v3.sqlite3")).unwrap();
+    let public_row = database
+        .query_row(
+            "SELECT board_id, moves, code, tenant, created_at, expires_at FROM replay_records WHERE code = ?1",
+            [&public_code],
+            |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?, row.get::<_, String>(3)?, row.get::<_, i64>(4)?, row.get::<_, Option<i64>>(5)?)),
+        )
+        .unwrap();
+    assert_eq!(public_row.0, "practice-01");
+    assert_eq!(public_row.1, "RRRRRURUUUUU");
+    assert_eq!(public_row.2, public_code);
+    assert_eq!(public_row.3, "public");
+    assert!(public_row.4 >= before);
+    assert_eq!(public_row.5, None);
+
+    let demo_row = database
+        .query_row(
+            "SELECT tenant, created_at, expires_at FROM replay_records WHERE code = ?1",
+            [&demo_code],
+            |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, Option<i64>>(2)?,
+                ))
+            },
+        )
+        .unwrap();
+    assert_eq!(demo_row.0, "demo");
+    let demo_expiry = demo_row.2.expect("demo rows have an expiry");
+    assert!((demo_expiry - demo_row.1 - 86_400).abs() <= 1);
+    drop(database);
     let _ = std::fs::remove_dir_all(directory);
 }

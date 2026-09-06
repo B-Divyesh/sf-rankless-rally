@@ -47,7 +47,7 @@ This product deploys as one Rust container at `https://rankless-rally.sociobot.i
 
 ## Privacy and terms
 
-The game saves settings, a current run, and personal best cards in browser storage. The demo uses a separate storage namespace. When you request a replay code, the server stores only its board, moves, code, and sandbox expiry where applicable. See [`/privacy`](https://rankless-rally.sociobot.in/privacy) and [`/terms`](https://rankless-rally.sociobot.in/terms).
+The game saves settings, a current run, and personal best cards in browser storage. The demo uses a separate storage namespace. When you request a replay code, the server stores its board ID, moves, opaque code, tenant (`public` or `demo`), and creation time. Demo records also have a 24-hour expiry. It stores no account, name, profile, or browser settings. A request-address rate limit is held in memory for up to one minute. See [`/privacy`](https://rankless-rally.sociobot.in/privacy) and [`/terms`](https://rankless-rally.sociobot.in/terms).
 
 ## License
 

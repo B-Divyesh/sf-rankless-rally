@@ -112,6 +112,13 @@
     "sandbox": "finish /demo board, inspect the displayed code, then load it in an independent browser context"
   },
   {
+    "id": "server-storage-metadata",
+    "claim": "Replay records store a board, moves, opaque code, tenant, and creation time; demo records have a 24-hour expiry.",
+    "where": "privacy page, README, demo documentation",
+    "test": "cargo test --test server_api claim_server_storage_metadata",
+    "sandbox": "fresh local SQLite; create public and demo records through the replay API, then inspect their persisted fields and demo expiry"
+  },
+  {
     "id": "completed-replay-only",
     "claim": "Only a completed route can become a replay code.",
     "where": "replay code error message",
