@@ -17,7 +17,7 @@ COPY src/lib.rs ./src/lib.rs
 COPY src/bin/rankless-rally-server.rs ./src/bin/rankless-rally-server.rs
 ARG BUILD_SHA=dev
 ENV BUILD_SHA=$BUILD_SHA
-RUN cargo build --release --bin rankless-rally-server
+RUN BUILD_SHA=${BUILD_SHA} cargo build --release --bin rankless-rally-server
 
 FROM debian:bookworm-slim
 ARG BUILD_SHA=dev
