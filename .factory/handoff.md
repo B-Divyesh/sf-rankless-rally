@@ -1,5 +1,20 @@
 # Rankless Rally handoff
 
+## Independent verification 5 — 2026-09-06
+
+**PASS — 0 findings and 0 untested public claims.**
+
+- Implementation reviewed: `6ea1f1ee8c91e0882216af7fa855c01e132901f3`.
+- Documentation reviewed: `7f88debcdc08ea0701c485c0d27d3be3d757f52b`.
+- Full report: [`.factory/verification-5.md`](verification-5.md).
+- Evidence: `/work/.evidence/rankless-rally-verify-5/`.
+
+Fresh local setup passed 52 browser tests, 6 Rust tests, and all 22 claim commands independently. The same 52 browser checks passed on the live desktop and phone projects. The deterministic phone run reached a win, issued a replay code, opened in an independent client, reset, and reached both manual and natural-timeout loss screens. The recorded phone run measured 59.99 rendered frames per second.
+
+The public backend returned build `6ea1f1e`, kept demo and public tenants separate, rejected incomplete routes, allowed 300 requests before `429` with `Retry-After: 60`, and preserved a replay byte-for-byte across a restart of only `sf-rankless-rally--repair4focus`. The revision settled back to one healthy running replica. Lighthouse mobile scored 100/100/100/100. Full Axe found no light- or dark-treatment violation.
+
+No product code changed during verification. The only repository changes are this handoff update and the verification report.
+
 ## Repair 4 — 2026-09-06
 
 **READY FOR INDEPENDENT QA** — RRV4-01 is repaired at the public deployment boundary.
