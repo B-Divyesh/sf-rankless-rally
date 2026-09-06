@@ -107,7 +107,10 @@ test('@claim:keyboard-controls routes with Arrow keys and WASD', async ({ page }
 
 test('@claim:touch-controls routes with 44-pixel on-screen direction controls', async ({ page }, testInfo) => {
   await page.goto('/demo');
+  await page.waitForLoadState('networkidle');
   const right = page.getByRole('button', { name: 'Move right' });
+  await right.scrollIntoViewIfNeeded();
+  await expect(right).toBeVisible();
   const bounds = await right.boundingBox();
   expect(bounds?.width).toBeGreaterThanOrEqual(44);
   expect(bounds?.height).toBeGreaterThanOrEqual(44);
@@ -266,12 +269,27 @@ test('@claim:no-tracking makes no third-party requests during a sample run', asy
   const requests: string[] = [];
   page.on('request', (request) => requests.push(request.url()));
   await page.goto('/demo');
+  const productOrigin = new URL(page.url()).origin;
   await page.getByRole('button', { name: 'Start the sample board' }).click();
   await page.keyboard.press('ArrowRight');
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Save settings' }).click();
   expect(requests.length).toBeGreaterThan(0);
-  expect(requests.every((url) => new URL(url).origin === 'http://127.0.0.1:4173')).toBeTruthy();
+  expect(requests.every((url) => new URL(url).origin === productOrigin)).toBeTruthy();
+});
+
+test('plays a complete win, restarts, and reaches the supported loss screen', async ({ page }) => {
+  await page.goto('/demo');
+  await winningRoute(page);
+  await expect(page.getByLabel('Completed replay code')).toHaveValue(/^RR2-/);
+  await page.getByRole('button', { name: 'Play this board again' }).click();
+  await expect(page.getByTestId('timer')).toHaveText('1:30');
+  await page.getByRole('button', { name: 'Start run' }).click();
+  await page.getByRole('button', { name: 'Pause run' }).click();
+  await page.getByRole('button', { name: 'End this run' }).click();
+  await page.getByRole('button', { name: 'End run', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'The route was not completed' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Restart this board' })).toBeVisible();
 });
 
 test('@claim:fixed-60hz uses a measured fixed update loop during active play', async ({ page }) => {

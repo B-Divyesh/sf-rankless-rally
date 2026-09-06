@@ -29,6 +29,7 @@ Open `http://localhost:5173/demo` for the isolated sample game. `npm run dev` bu
 npm test
 npm run build
 cargo test
+npm run verify:public -- https://rankless-rally.sociobot.in --rate-limit
 ```
 
 `npm test` builds the app, runs Rust API checks and every Playwright claim check in desktop and phone-sized Chromium, tests a real win route, server-verified replay, restart, settings persistence, demo isolation, archive, privacy requests, fixed-step timing, route errors/recovery, legal routes, real 404 handling, console errors, and serious/critical Axe findings.
@@ -40,6 +41,8 @@ npm test -- --grep @claim:complete-run
 ```
 
 The static web output is written to `dist/`. The Rust server serves it and returns the designed 404 page with HTTP 404 for unknown routes.
+
+The public verifier requires the deployed HTTPS origin. It checks JSON health, demo and public tenant separation, completed and incomplete replay handling, an independent replay read, and the 300-request allowance followed by `429` and `Retry-After: 60`.
 
 ## Deploy
 

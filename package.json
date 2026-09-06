@@ -9,6 +9,7 @@
     "preview": "cargo run --quiet --bin rankless-rally-server",
     "test": "npm run build && cargo test && playwright test",
     "test:claims": "npm run build && cargo test && playwright test tests/claims.spec.ts",
+    "verify:public": "node scripts/verify-public-replay.mjs",
     "check": "npm run build && cargo test && npm run test"
   },
   "devDependencies": {
