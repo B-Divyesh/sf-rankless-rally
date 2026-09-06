@@ -506,7 +506,7 @@ fn load_replay(
     clean_expired(&connection)?;
     let mut statement = connection.prepare(
         "SELECT code, board_id, moves FROM replay_records
-         WHERE code = ?1 AND (tenant = 'public' OR tenant = ?2)",
+         WHERE code = ?1 AND tenant = ?2",
     )?;
     let mut records = statement.query(params![code, tenant.as_str()])?;
     records

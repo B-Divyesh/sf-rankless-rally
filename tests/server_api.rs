@@ -55,6 +55,19 @@ async fn api_accepts_only_completed_routes_and_resolves_a_persisted_public_code(
     assert!(code.starts_with("RR2-"));
     assert!(replay.get("name").is_none());
 
+    let demo_cannot_read_public = service
+        .clone()
+        .oneshot(
+            Request::builder()
+                .uri(format!("/api/replays/{code}"))
+                .header("x-rankless-sandbox", "demo")
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(demo_cannot_read_public.status(), StatusCode::NOT_FOUND);
+
     let read = Request::builder()
         .uri(format!("/api/replays/{code}"))
         .body(Body::empty())
