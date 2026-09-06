@@ -2,7 +2,8 @@
 
 ## Release
 
-- Runtime implementation: `4408b0ff35c3dfc6f9121e30c0bed6617d9ca3f1`.
+- Runtime implementation deployed to production: `64cc2c4ddea4f7a8ccbac4b441eb7cc8ba35d02c`.
+- Documentation revision: `e518b7e69ba15e49ef8031ad0a3eb0c0a3e16bc6`.
 - Deployment: one product-owned Rust container with one replica and a durable `/data` Azure Files mount.
 - Live URL: <https://rankless-rally.sociobot.in>
 
@@ -15,6 +16,7 @@ Rankless Rally is a 90-second routing puzzle for people who want to improve a pe
 - Added durable SQLite replay storage on `/data/rankless-rally-replays-v3.sqlite3`. The service uses SQLite's `unix-dotfile` VFS because the mounted Azure Files share does not support SQLite byte-range locks. The deployment is deliberately fixed at one replica and the server serializes its one database connection.
 - Kept demo and public replay records in separate tenants. They cannot resolve each other's codes. Demo records expire after 24 hours; demo browser data remains under the `demo:rankless-rally:*` namespace.
 - Added live-safe replay limits: 300 requests per client per minute return HTTP 429 with `Retry-After: 60`. This permits normal parallel game and browser activity while bounding unauthenticated replay requests.
+- The subsequent local-test revision chooses the ordinary SQLite VFS outside `/data`; the deployed `/data` branch and production image are unchanged.
 - Preserved free play, the permanent archive, local settings, keyboard/touch play, score cards, privacy/terms, and all prior repaired behavior.
 
 ## Verification
