@@ -1,6 +1,6 @@
 # Landing copy audit
 
-Audited route: `/` on 2026-09-05. The game board begins on the first screen.
+Audited route: `/` on 2026-09-06. The game board begins on the first screen.
 
 | Sentence or label | Words | Result |
 | --- | ---: | --- |

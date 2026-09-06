@@ -1,64 +1,66 @@
 # Rankless Rally handoff
 
-## Independent verification 3 — 2026-09-06
+## Repair 3 — 2026-09-06
 
-**FAIL** — independent QA found 2 issues and 1 untested public claim. The implementation candidate is `64cc2c4ddea4f7a8ccbac4b441eb7cc8ba35d02c`; the documentation revision is `e8d21d9266d7726cc11c5896d03756cdcda5b091`.
+**PASS** — the live product now serves its replay API from the same public origin as the game, and the storage notice matches the persisted replay fields.
 
-- A fresh clean checkout passed `npm ci`, all 50 browser checks, all 5 Rust checks, and all 21 declared claim commands separately.
-- The live frontend matches the candidate build byte for byte, but `/health` and replay GET routes return the static HTML 404 and replay POST returns 405. A completed live run cannot receive a replay code. Tenant isolation and restart persistence are therefore not exercisable, and 310 live requests returned 404 with no 429 or `Retry-After`.
-- The README’s server-storage statement says **only** board, moves, code, and expiry are stored, while the schema also stores tenant and creation time. That storage/retention statement has no exact declared claim test.
-- The game loop, one-click sample, reset isolation, win/loss/restart paths, Archive focus, phone controls, route metadata, full Axe scans, and measured phone rendering passed.
-
-Do not use the earlier “live revision is healthy” note as the current release verdict. The full report is [`.factory/verification-3.md`](verification-3.md), with evidence in `/work/.evidence/rankless-rally-verify-3/`.
-
-## Release
-
-- Runtime implementation deployed to production: `64cc2c4ddea4f7a8ccbac4b441eb7cc8ba35d02c`.
-- Documentation revision: `e518b7e69ba15e49ef8031ad0a3eb0c0a3e16bc6`.
-- Deployment: one product-owned Rust container with one replica and a durable `/data` Azure Files mount.
+- Runtime implementation: `82f7dd0be762e44fd5ccbf731efef0cfca7d71d2`.
+- Deployed image: `sociobotregistry.azurecr.io/sf-rankless-rally@sha256:e8562626ac6e91fe979e33dc58f6ef39957260bcd6c1e47adc8063d5e5399686`.
+- Product revision: `sf-rankless-rally--repair3headers`.
+- Documentation revision: this handoff’s final commit.
 - Live URL: <https://rankless-rally.sociobot.in>
 
-Rankless Rally is a 90-second routing puzzle for people who want to improve a personal score without a ranked ladder. The first screen shows the board, says **Connect every relay before time ends**, identifies players who want a personal route score, and starts with **Try it with sample data**.
+## Product and first action
+
+Rankless Rally is a 90-second routing puzzle for people who want to improve a personal score without a ranked ladder. The first screen says **Connect every relay before time ends**, names puzzle players seeking a personal route score, and starts with **Try it with sample data**. The playable board is visible before scrolling on desktop and a 390 px phone viewport.
 
 ## What changed
 
-- Fixed Archive navigation at its cause: it no longer smooth-scrolls or estimates hidden section height. After Archive is selected, the practice-board heading remains fully visible and receives keyboard focus on desktop and phone.
-- Added a product-owned Rust/Axum replay service. A completed route is checked against the deterministic board on the server before it receives an opaque `RR2-…` code.
-- Added durable SQLite replay storage on `/data/rankless-rally-replays-v3.sqlite3`. The service uses SQLite's `unix-dotfile` VFS because the mounted Azure Files share does not support SQLite byte-range locks. The deployment is deliberately fixed at one replica and the server serializes its one database connection.
-- Kept demo and public replay records in separate tenants. They cannot resolve each other's codes. Demo records expire after 24 hours; demo browser data remains under the `demo:rankless-rally:*` namespace.
-- Added live-safe replay limits: 300 requests per client per minute return HTTP 429 with `Retry-After: 60`. This permits normal parallel game and browser activity while bounding unauthenticated replay requests.
-- The subsequent local-test revision chooses the ordinary SQLite VFS outside `/data`; the deployed `/data` branch and production image are unchanged.
-- Preserved free play, the permanent archive, local settings, keyboard/touch play, score cards, privacy/terms, and all prior repaired behavior.
+- Reconnected `rankless-rally.sociobot.in` to the product-owned container ingress already bound to its certificate. The previous CNAME still sent the public hostname to a separate Static Web App, which caused replay routes to return 404/405 while the healthy container was unreachable from the product URL.
+- Deployed the Rust/Vite container as one replica with its existing Azure Files `/data` mount unchanged. The live `/health` endpoint now reports the deployed implementation and a ready SQLite database.
+- Corrected the Privacy page, README, and demo documentation. Replay records store board ID, moves, opaque code, tenant, and creation time; demo records also have a 24-hour expiry. The copy also explains the one-minute in-memory address-based rate-limit bucket.
+- Added the `server-storage-metadata` claim and an integration check that creates public and demo records through the API, then inspects the actual SQLite rows and demo expiry.
+- Made the server build revision deterministic and kept security headers on early rate-limit responses. The 429 regression test now checks `Retry-After`, `X-Content-Type-Options`, and `Referrer-Policy`.
 
 ## Verification
 
-From the documented clean setup, `npm test` passed 50 checks on the final implementation. All 21 commands in `.factory/claims.json` also passed separately in desktop and phone projects.
+From the documented clean setup (`npm ci`), all checks passed:
 
-The final browser build is 30.58 KB JavaScript (10.67 KB gzip) and 16.10 KB CSS (4.32 KB gzip).
-
-Live checks on the final service covered:
-
-- `/health` reports the deployed implementation and `database: ready`.
-- An invalid replay returned 422; a completed replay returned a code and resolved with 200.
-- Public and demo replay tenants returned 404 when asked for each other's code.
-- A replay persisted after a revision restart and returned 200 from the new replica.
-- A 360-request live burst reached 429, and the follow-up response included `Retry-After: 60`.
-- Fresh desktop and phone browser contexts showed the job, audience, first action, and playable board before scrolling. Each entered the demo, completed the board, received an `RR2-…` code, reset demo data, and retained the interrupted real run.
-- Archive focus was `archive-title` with the heading fully in view on both sizes. Light and dark Axe scans had zero violations; no console errors occurred.
-- `scripts/verify-url.sh` passed over HTTPS for `/`, `/demo`, `/privacy`, `/terms`, and `/not-a-route`. The last path returns the designed HTTP 404.
-
-Evidence is in `/work/.evidence/rankless-rally-repair-2/`, including `claims-final-allowance.log`, `npm-test-rate-allowance.log`, live API results, rate-limit evidence, browser screenshots, and the restart-persistence result.
+- `npm run build` completed. Final assets are 30.77 KB JavaScript (10.78 KB gzip) and 16.10 KB CSS (4.32 KB gzip).
+- `cargo test` passed 6 Rust tests.
+- `npm test` passed all 50 Playwright checks in desktop and phone projects.
+- Every one of the 22 commands in `.factory/claims.json` passed separately, including the new SQLite metadata/expiry claim.
+- HTTPS `scripts/verify-url.sh` passed for `/`, `/demo`, `/privacy`, `/terms`, and `/not-a-route`. The last response is the designed HTTP 404.
+- Fresh live desktop and phone contexts showed the job, audience, action, and board before scrolling. Desktop demo reset retained a real run; phone demo showed the persistent sample label and populated card, completed the deterministic route, showed **You reached the exit**, and received an `RR2-…` code. A second fresh client loaded that replay.
+- Final live Axe scan had 0 violations and no browser console errors.
+- Lighthouse mobile on live `/demo`: Performance 100, Accessibility 100, Best Practices 100, SEO 100; FCP 1.1 s, LCP 1.1 s, CLS 0, TBT 40 ms. Report: `/work/.evidence/rankless-rally-repair-3-lighthouse.json`.
+- Live replay checks: health 200; invalid replay 422; completed public replay created and resolved with 201/200; public and demo tenants each received 404 for the other tenant’s code; a public replay still resolved after a product revision restart; and a 320-request non-writing API probe returned 300 HTTP 404 responses followed by 20 HTTP 429 responses with `Retry-After: 60` and security headers.
 
 ## Earlier finding disposition
 
-| Finding | Disposition |
+| Finding | Current disposition |
 | --- | --- |
-| Archive heading was hidden after settled navigation | Fixed and covered by a delayed desktop/phone outcome check. |
-| Server-authoritative replay verification and SQLite were absent | Fixed with the same-origin Rust verifier, deterministic validation, opaque codes, and durable SQLite state. |
-| Demo isolation, focus, targets, 404, metadata, and previous minor findings | Remain covered by the final browser and claim suites. |
+| RRV1 sample route, Archive navigation, route/dialog focus, small phone targets, ARIA role, canonicals, and designed 404 | Fixed and retained by browser regression checks. |
+| RRV1 undeclared daily/card/replay/audio/reduced-motion behaviors | Covered by declared outcome tests. |
+| RRV1/RRV2 server-authoritative replay requirement | Fixed. The server validates deterministic move logs, stores only verified replays in SQLite, isolates tenants, persists across restart, and rate-limits requests. |
+| RRV2 Archive settled below its heading | Fixed by settled focus/scroll behavior; desktop and phone outcome checks pass. |
+| RRV3 live API 404/405 and missing live rate limit | Fixed by moving the product hostname to the existing product container ingress. Live health, replay, isolation, persistence, and 429 checks pass. |
+| RRV3 incomplete server-storage wording and missing claim | Fixed. Public copy lists tenant and creation metadata plus demo expiry; the claim verifies the persisted values. |
+
+## Run and deploy
+
+```bash
+npm ci
+npm run dev
+npm test
+npm run build
+cargo test
+```
+
+`npm run dev` starts the same Rust server locally with SQLite in `data/`. Production serves `dist/` and `/api/replays` from one container, one replica, and the durable `/data` mount. Deploy a new image through the product container app only; retain its mount and one-replica limits.
 
 ## Known limits
 
-- The product does not promise offline reload or updates, so it does not ship a service worker.
-- No paid offer is advertised, so no billing registration metadata is required. The entire game core remains free.
-- The current frame-rate statement is a tested fixed 60 Hz simulation update, not a promise of 60 rendered frames per second on every device.
+- The game does not promise offline reload or update behavior, so it has no service worker.
+- The free core has no advertised paid offer, so no billing registration metadata is required.
+- The 60 Hz statement describes the fixed simulation update loop, not a guarantee of 60 rendered frames per second on every device.
