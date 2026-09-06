@@ -1,5 +1,22 @@
 # Rankless Rally handoff
 
+## Independent review 2 — 2026-09-06
+
+**PASS — 0 findings and 0 untested public claims.**
+
+- Implementation reviewed: `6ea1f1ee8c91e0882216af7fa855c01e132901f3`.
+- Documentation reviewed: `58e741a71146e7b19a6b611fef6537b4d2526027`.
+- Full report: [`.factory/review-2.md`](review-2.md).
+- Evidence: `/work/.evidence/rankless-rally-review-2/`.
+
+Fresh desktop and phone browsers showed the playable board on the first screen. The phone review entered the one-click demo, verified the persistent sample label and populated card, reset it without changing a real paused run, completed a touch-control win, loaded the replay in an independent client, restarted, and reached an actual loss end screen. The recorded run and end-screen screenshots are in the review evidence.
+
+From a clean checkout, `npm ci`, `npm run build`, `cargo test`, and `npm test` passed; the aggregate test run passed 52 browser checks and 6 Rust tests. Every one of the 22 exact declared claim commands passed independently. The same 52 browser checks passed on the live desktop and phone site.
+
+The live public checker passed health, server validation, independent replay reading, tenant isolation, and the 300-request rate limit with `429`/`Retry-After`. A replay created before restarting only `sf-rankless-rally--repair4focus` resolved byte-for-byte after the new product replica was running, proving durable `/data` persistence. Fresh phone measurement was 60.18 fps and the active run reported a 60 Hz update sample. URL checks, full light/dark Axe checks, keyboard/focus, reduced motion, privacy requests, legal pages, internal links, and the expected designed 404 all passed.
+
+No product code changed during the review. No known product defect or untested public claim remains.
+
 ## Independent review 1 — 2026-09-06
 
 **PASS — 0 findings and 0 untested public claims.**
