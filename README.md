@@ -48,6 +48,8 @@ The public verifier requires the deployed HTTPS origin. It checks JSON health, d
 
 This product deploys as one Rust container at `https://rankless-rally.sociobot.in`. It serves `dist/` and its replay API from the same origin. The server starts with only `PORT`; it writes SQLite state to `/data/rankless-rally-replays-v3.sqlite3` on the fleet-mounted durable volume and runs as one replica. The product needs no external provider or credential.
 
+Use the container deployment wrapper. The public CNAME must target `sf-rankless-rally.orangepond-1638693f.eastus2.azurecontainerapps.io`; a static deployment cannot serve the replay API. Preserve the existing `/data` mount, single-revision mode, and one-replica limits.
+
 ## Privacy and terms
 
 The game saves settings, a current run, and personal best cards in browser storage. The demo uses a separate storage namespace. When you request a replay code, the server stores its board ID, moves, opaque code, tenant (`public` or `demo`), and creation time. Demo records also have a 24-hour expiry. It stores no account, name, profile, or browser settings. A request-address rate limit is held in memory for up to one minute. See [`/privacy`](https://rankless-rally.sociobot.in/privacy) and [`/terms`](https://rankless-rally.sociobot.in/terms).
