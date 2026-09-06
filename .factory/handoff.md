@@ -2,74 +2,50 @@
 
 ## Release
 
-- Runtime implementation: `d15b43bd58af170d659b6c3e97863f96fa81062e`
-- Documentation handoff content: `ddd4a1ecdb517b3068d6f091feb1b2ef2ddc6f20`
-- Deployment: product static target, deployed from `dist/` on 2026-09-05.
+- Runtime implementation: `4408b0ff35c3dfc6f9121e30c0bed6617d9ca3f1`.
+- Deployment: one product-owned Rust container with one replica and a durable `/data` Azure Files mount.
 - Live URL: <https://rankless-rally.sociobot.in>
 
-## Independent verification 2
-
-Verification 2 reviewed runtime implementation `d15b43bd58af170d659b6c3e97863f96fa81062e` and documentation revision `fb3cf529464b5b0ffb07013cc20229a11e652a79`.
-
-**Verdict: FAIL — 2 findings, 0 untested claims.** See [`.factory/verification-2.md`](verification-2.md).
-
-- RRV2-01: Archive navigation focuses the correct heading, but smooth scrolling settles past it. The heading ends 208.58 CSS pixels above the desktop viewport and 82.81 pixels above the phone viewport.
-- RRV2-02: server-authoritative replay verification remains absent because this static product has no backend or SQLite state.
-- `npm test` passed 46 checks. All 20 claim commands passed separately in desktop and phone projects.
-- Live win, loss, timeout, recovery, demo isolation, independent replay, routes, privacy, accessibility, and performance were exercised. Lighthouse scored 100 in all four categories; full Axe found zero violations in light and dark.
-- Live HTML, JavaScript, and CSS hashes match the clean candidate build.
-
-Rankless Rally is a free 90-second routing puzzle for players who want to improve a personal route score without a ranked ladder. A run uses mouse, touch controls, Arrow keys, or WASD. The first screen tells visitors to connect relays before time ends, identifies puzzle players who want a personal score, and starts with **Try it with sample data**.
+Rankless Rally is a 90-second routing puzzle for people who want to improve a personal score without a ranked ladder. The first screen shows the board, says **Connect every relay before time ends**, identifies players who want a personal route score, and starts with **Try it with sample data**.
 
 ## What changed
 
-- The first-screen sample action now opens Practice 01 with a sample rally card and a visible shared-route marker. Reset restores that sample without changing real-game storage.
-- Archive navigation now changes the address and focuses the archive heading, but verification 2 found that the settled scroll position places the heading above the viewport. Other route changes focus the new page heading, and closing settings restores focus to the Settings control.
-- Header, privacy, and footer links now meet the 44 by 44 pixel touch-target requirement. The demo banner no longer uses an invalid ARIA role.
-- `/`, `/demo`, `/privacy`, and `/terms` are emitted as real static pages with route-specific titles, descriptions, social metadata, and canonicals. Unknown routes now return the designed 404 page with HTTP 404.
-- Replay logs now reject incomplete or impossible deterministic routes before display. Historic daily replay ids can resolve their board date. This is browser-side validation only.
-- Added outcome-based tests for the daily date change, rally-card values, replay privacy and completion, route audio timing, reduced replay motion, demo output, focus, target size, metadata, and HTTP 404 behavior.
+- Fixed Archive navigation at its cause: it no longer smooth-scrolls or estimates hidden section height. After Archive is selected, the practice-board heading remains fully visible and receives keyboard focus on desktop and phone.
+- Added a product-owned Rust/Axum replay service. A completed route is checked against the deterministic board on the server before it receives an opaque `RR2-…` code.
+- Added durable SQLite replay storage on `/data/rankless-rally-replays-v3.sqlite3`. The service uses SQLite's `unix-dotfile` VFS because the mounted Azure Files share does not support SQLite byte-range locks. The deployment is deliberately fixed at one replica and the server serializes its one database connection.
+- Kept demo and public replay records in separate tenants. They cannot resolve each other's codes. Demo records expire after 24 hours; demo browser data remains under the `demo:rankless-rally:*` namespace.
+- Added live-safe replay limits: 300 requests per client per minute return HTTP 429 with `Retry-After: 60`. This permits normal parallel game and browser activity while bounding unauthenticated replay requests.
+- Preserved free play, the permanent archive, local settings, keyboard/touch play, score cards, privacy/terms, and all prior repaired behavior.
 
 ## Verification
 
-From the documented clean setup:
+From the documented clean setup, `npm test` passed 50 checks on the final implementation. All 21 commands in `.factory/claims.json` also passed separately in desktop and phone projects.
 
-```bash
-npm ci
-npm test
-npm run build
-```
+The final browser build is 30.58 KB JavaScript (10.67 KB gzip) and 16.10 KB CSS (4.32 KB gzip).
 
-- `npm test` passed: 46 Playwright checks across desktop Chromium and iPhone-sized Chromium.
-- All 20 commands in `.factory/claims.json` passed separately in both browser projects, including the six new or expanded replay, daily, card, audio, and reduced-motion claims.
-- `scripts/verify-url.sh` passed locally and over HTTPS for `/`, `/demo`, `/privacy`, `/terms`, and `/not-a-route`. The first four return 200; `/not-a-route` returns 404.
-- Full Axe checks against the live `/demo` returned zero serious or critical issues and zero `aria-allowed-role` issues in light and dark treatments.
-- Build output: JavaScript 28.69 KB (10.07 KB gzip); CSS 16.16 KB (4.35 KB gzip).
-- Fresh live desktop and phone contexts had no console errors. Both showed the job, audience, first action, and board before scrolling. The board began at 378 px of a 900 px desktop viewport and 510 px of a 664 px phone viewport. The demo was played through the real win screen with `RRRRRURUUUUU`.
+Live checks on the final service covered:
 
-Evidence screenshots are in `/work/.evidence/rankless-rally-repair-1/`:
+- `/health` reports the deployed implementation and `database: ready`.
+- An invalid replay returned 422; a completed replay returned a code and resolved with 200.
+- Public and demo replay tenants returned 404 when asked for each other's code.
+- A replay persisted after a revision restart and returned 200 from the new replica.
+- A 360-request live burst reached 429, and the follow-up response included `Retry-After: 60`.
+- Fresh desktop and phone browser contexts showed the job, audience, first action, and playable board before scrolling. Each entered the demo, completed the board, received an `RR2-…` code, reset demo data, and retained the interrupted real run.
+- Archive focus was `archive-title` with the heading fully in view on both sizes. Light and dark Axe scans had zero violations; no console errors occurred.
+- `scripts/verify-url.sh` passed over HTTPS for `/`, `/demo`, `/privacy`, `/terms`, and `/not-a-route`. The last path returns the designed HTTP 404.
 
-- `live-desktop-first-screen.png`
-- `live-phone-first-screen.png`
-- `live-phone-win.png`
+Evidence is in `/work/.evidence/rankless-rally-repair-2/`, including `claims-final-allowance.log`, `npm-test-rate-allowance.log`, live API results, rate-limit evidence, browser screenshots, and the restart-persistence result.
 
 ## Earlier finding disposition
 
-| Finding | Status |
+| Finding | Disposition |
 | --- | --- |
-| Sample promised a shared route | Fixed: demo loads a visible completed shared route. |
-| Archive changed URL only | Reopened: address and focus are correct, but the settled scroll position overshoots the archive heading. See RRV2-01. |
-| Route and dialog focus loss | Fixed: focusable headings and explicit focus restoration. |
-| Small phone targets | Fixed: site navigation and footer links are at least 44 px in both dimensions. |
-| Invalid demo-banner ARIA | Fixed: the banner remains an `aside` without `role="status"`. |
-| Home canonical on legal/demo pages | Fixed: static and client metadata use matching production canonicals. |
-| Unknown route returned 200 | Fixed: real route files replace the broad fallback; live unknown route returns 404. |
-| Five public behaviors lacked claims | Fixed: all behaviors now have observable tagged checks; inventory has 20 claims. |
-| Server-side replay verification | Open: the assigned live product is a static deployment with no API or SQLite service. Browser-side replay validation prevents incomplete and impossible logs from loading, but it is not server authority. A product-owned, one-replica verifier service with SQLite on `/data` is required before claiming server-side anti-cheat. |
+| Archive heading was hidden after settled navigation | Fixed and covered by a delayed desktop/phone outcome check. |
+| Server-authoritative replay verification and SQLite were absent | Fixed with the same-origin Rust verifier, deterministic validation, opaque codes, and durable SQLite state. |
+| Demo isolation, focus, targets, 404, metadata, and previous minor findings | Remain covered by the final browser and claim suites. |
 
-## Known gaps and next steps
+## Known limits
 
-- Fix Archive navigation so the heading remains visible after scrolling settles, and make the regression test wait for the final scroll position.
-- Server-authoritative replay verification remains a brief gap. It cannot be truthfully provided by the current static deployment; no backend or external provider was added.
-- The game does not promise offline reload or updates, so no service-worker flow is shipped.
-- No paid offer is advertised, so there is no billing registration metadata. The free core, archive, score cards, and replays remain available without an account.
+- The product does not promise offline reload or updates, so it does not ship a service worker.
+- No paid offer is advertised, so no billing registration metadata is required. The entire game core remains free.
+- The current frame-rate statement is a tested fixed 60 Hz simulation update, not a promise of 60 rendered frames per second on every device.
