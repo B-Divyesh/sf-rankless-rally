@@ -172,6 +172,20 @@ async fn api_keeps_demo_replays_inside_the_demo_namespace_and_sets_retry_after()
             .and_then(|value| value.to_str().ok()),
         Some("60")
     );
+    assert_eq!(
+        response
+            .headers()
+            .get("x-content-type-options")
+            .and_then(|value| value.to_str().ok()),
+        Some("nosniff")
+    );
+    assert_eq!(
+        response
+            .headers()
+            .get("referrer-policy")
+            .and_then(|value| value.to_str().ok()),
+        Some("strict-origin-when-cross-origin")
+    );
     let _ = std::fs::remove_dir_all(directory);
 }
 

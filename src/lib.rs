@@ -199,8 +199,8 @@ pub fn app(state: AppState) -> Router {
         .route("/api/replays/demo", get(demo_replay))
         .route("/api/replays/{code}", get(read_replay))
         .fallback(static_file)
-        .layer(middleware::from_fn(security_headers))
         .layer(middleware::from_fn_with_state(state.clone(), rate_limit))
+        .layer(middleware::from_fn(security_headers))
         .with_state(state)
 }
 
